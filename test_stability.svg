@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+  <defs>
+    <filter id="blur1">
+      <feGaussianBlur stdDeviation="2" />
+    </filter>
+    <filter id="blur2">
+      <feGaussianBlur stdDeviation="4" />
+    </filter>
+  </defs>
+  
+  <!-- Rectangle with blur filter -->
+  <rect x="50" y="50" width="100" height="80" 
+        fill="blue" stroke="black" stroke-width="2"
+        filter="url(#blur1)" />
+  
+  <!-- Ellipse with stronger blur filter -->
+  <ellipse cx="250" cy="100" rx="60" ry="40" 
+           fill="red" stroke="black" stroke-width="2"
+           filter="url(#blur2)" />
+  
+  <!-- Rectangle without filter (for comparison) -->
+  <rect x="50" y="180" width="100" height="80" 
+        fill="green" stroke="black" stroke-width="2" />
+  
+  <!-- Ellipse without filter (for comparison) -->
+  <ellipse cx="250" cy="220" rx="60" ry="40" 
+           fill="yellow" stroke="black" stroke-width="2" />
+</svg>

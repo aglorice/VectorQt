@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <!-- 简单的矩形 -->
+  <rect x="50" y="50" width="100" height="80" fill="lightblue" stroke="black" stroke-width="2"/>
+  
+  <!-- 简单的圆形 -->
+  <circle cx="250" cy="90" r="40" fill="lightgreen" stroke="black" stroke-width="2"/>
+  
+  <!-- 简单的文本 - 基本属性 -->
+  <text x="50" y="180" font-family="Arial" font-size="16" fill="black">Hello World!</text>
+  
+  <!-- 文本 - 不同字体和大小 -->
+  <text x="50" y="210" font-family="Times New Roman" font-size="20" font-weight="bold" fill="darkblue">Bold Text</text>
+  
+  <!-- 文本 - 斜体 -->
+  <text x="50" y="240" font-family="Arial" font-size="14" font-style="italic" fill="darkgreen">Italic Text</text>
+  
+  <!-- 文本 - 带描边 -->
+  <text x="250" y="180" font-family="Courier" font-size="18" fill="red" stroke="blue" stroke-width="1">Monospace</text>
+  
+  <!-- 简单的路径 -->
+  <path d="M 200 200 Q 250 150 300 200 T 400 200" fill="none" stroke="purple" stroke-width="2"/>
+</svg>

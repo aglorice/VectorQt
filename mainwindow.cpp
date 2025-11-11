@@ -1,0 +1,1594 @@
+#include "mainwindow.h"
+#include "drawingscene.h"
+#include "drawingview.h"
+#include "drawing-canvas.h"
+#include "toolbase.h"
+#include "propertypanel.h"
+#include "drawing-tool-bezier.h"
+#include "drawing-tool-bezier-edit.h"
+#include "drawing-tool-node-edit.h"
+#include "selection-layer.h"
+#include "ruler.h"
+// #include "layermanager.h"  // Not implemented yet
+// #include "layerpanel.h"    // Not implemented yet
+// #include "advancedtools.h" // Not implemented yet
+#include "svghandler.h"
+#include "drawing-shape.h"
+#include "colorpalette.h"
+#include "drawing-group.h"
+#include <QMenuBar>
+#include <QMenu>
+#include <QToolBar>
+#include <QStatusBar>
+#include <QLabel>
+#include <QDockWidget>
+#include <QUndoView>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QApplication>
+#include <QInputDialog>
+#include <QColorDialog>
+#include <QScrollBar>
+#include <QIcon>
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent), m_scene(nullptr), m_canvas(nullptr), m_propertyPanel(nullptr), m_undoView(nullptr), m_currentTool(nullptr), m_selectTool(nullptr), m_rectangleTool(nullptr), m_ellipseTool(nullptr), m_bezierTool(nullptr),
+      m_colorPalette(nullptr),
+      m_horizontalRuler(nullptr), m_verticalRuler(nullptr), m_cornerWidget(nullptr), m_isModified(false)
+{
+    createActions();
+    setupUI();
+    connectActions();
+
+    // Create initial scene
+    newFile();
+
+    qDebug() << "MainWindow initialized, default tool already set";
+    
+    // Setup color palette
+    m_colorPalette = new ColorPalette(this);
+    m_colorPalette->setScene(m_scene);
+    
+    // Create a dock widget to contain the color palette
+    QDockWidget *colorPaletteDock = new QDockWidget("", this);  // 空标题
+    colorPaletteDock->setWidget(m_colorPalette);
+    colorPaletteDock->setAllowedAreas(Qt::BottomDockWidgetArea);
+    colorPaletteDock->setFeatures(QDockWidget::NoDockWidgetFeatures);  // 禁用所有dock功能，使其固定
+    colorPaletteDock->setTitleBarWidget(new QWidget());  // 完全移除标题栏
+    addDockWidget(Qt::BottomDockWidgetArea, colorPaletteDock);
+
+    // 初始化标尺和网格
+    if (m_horizontalRuler && m_verticalRuler && m_canvas && m_canvas->view())
+    {
+        QPoint origin = m_canvas->view()->mapFromScene(QPoint(0, 0));
+        m_horizontalRuler->setOrigin(origin.x());
+        m_verticalRuler->setOrigin(origin.y());
+        m_horizontalRuler->setScale(1.0);
+        m_verticalRuler->setScale(1.0);
+    }
+
+    // 触发网格更新
+    if (m_scene)
+    {
+        m_scene->update();
+    }
+
+    // 不设置默认工具，让用户手动选择
+
+    resize(1200, 800);
+    setWindowTitle("QDrawPro - 矢量绘图应用");
+}
+
+MainWindow::~MainWindow()
+{
+    // 在析构MainWindow之前，先清理所有工具
+    // 确保工具被正确停用并清理资源
+    
+    // 停用当前工具
+    if (m_currentTool) {
+        m_currentTool->deactivate();
+        m_currentTool = nullptr;
+    }
+    
+    // 显式删除所有工具对象，确保它们在场景销毁之前被清理
+    if (m_nodeEditTool) {
+        delete m_nodeEditTool;
+        m_nodeEditTool = nullptr;
+    }
+    
+    
+    
+    if (m_bezierTool) {
+        delete m_bezierTool;
+        m_bezierTool = nullptr;
+    }
+    
+    if (m_ellipseTool) {
+        delete m_ellipseTool;
+        m_ellipseTool = nullptr;
+    }
+    
+    if (m_rectangleTool) {
+        delete m_rectangleTool;
+        m_rectangleTool = nullptr;
+    }
+    
+    if (m_selectTool) {
+        delete m_selectTool;
+        m_selectTool = nullptr;
+    }
+    
+    // 清理场景
+    if (m_scene) {
+        delete m_scene;
+        m_scene = nullptr;
+    }
+}
+
+void MainWindow::setupUI()
+{
+    // Create scene
+    m_scene = new DrawingScene(this);
+    m_scene->setSceneRect(0, 0, 1000, 800);
+    m_scene->setGridVisible(true); // 确保网格初始可见
+
+    // Create rulers
+    m_horizontalRuler = new Ruler(Ruler::Horizontal, this);
+    m_verticalRuler = new Ruler(Ruler::Vertical, this);
+
+    // Create drawing canvas with grid functionality
+    m_canvas = new DrawingCanvas(this);
+    m_canvas->setScene(m_scene);
+
+    // 确保视图正确初始化并显示网格
+    if (m_canvas->view())
+    {
+        // 设置视图左上角对齐场景原点
+        m_canvas->view()->centerOn(0, 0);
+        // 确保滚动条范围正确设置
+        m_canvas->view()->ensureVisible(m_scene->sceneRect());
+        // 强制更新视图以确保网格显示
+        m_canvas->view()->update();
+        m_scene->update();
+    }
+
+    // 初始化标尺原点和缩放
+    if (m_canvas->view())
+    {
+        // Set view for rulers to enable proper coordinate conversion
+        m_horizontalRuler->setView(m_canvas->view());
+        m_verticalRuler->setView(m_canvas->view());
+
+        QPoint origin = m_canvas->view()->mapFromScene(QPoint(0, 0));
+        m_horizontalRuler->setOrigin(origin.x());
+        m_verticalRuler->setOrigin(origin.y());
+        m_horizontalRuler->setScale(m_canvas->view()->zoomLevel());
+        m_verticalRuler->setScale(m_canvas->view()->zoomLevel());
+        qDebug() << "Initial ruler setup - origin:" << origin << "zoom:" << m_canvas->view()->zoomLevel();
+    }
+
+    // Connect unit change signals to keep both rulers synchronized
+    connect(m_horizontalRuler, &Ruler::unitChangedForAll,
+            this, [this](Ruler::Unit unit)
+            {
+                if (m_verticalRuler) {
+                    m_verticalRuler->blockSignals(true); // 防止信号循环
+                    m_verticalRuler->setUnit(unit);
+                    m_verticalRuler->blockSignals(false);
+                } });
+
+    connect(m_verticalRuler, &Ruler::unitChangedForAll,
+            this, [this](Ruler::Unit unit)
+            {
+                if (m_horizontalRuler) {
+                    m_horizontalRuler->blockSignals(true); // 防止信号循环
+                    m_horizontalRuler->setUnit(unit);
+                    m_horizontalRuler->blockSignals(false);
+                } });
+
+    // Create corner widget - match ruler size to provide proper alignment
+    m_cornerWidget = new QWidget(this);
+    m_cornerWidget->setFixedSize(Ruler::rulerSize(), Ruler::rulerSize());
+    m_cornerWidget->setStyleSheet("background-color: transparent;");
+
+    // Create central widget with rulers
+    QWidget *centralWidget = new QWidget(this);
+    QVBoxLayout *centralLayout = new QVBoxLayout(centralWidget);
+    centralLayout->setContentsMargins(0, 0, 0, 0);
+    centralLayout->setSpacing(0);
+
+    // Create horizontal ruler container
+    QWidget *topWidget = new QWidget(centralWidget);
+    QHBoxLayout *topLayout = new QHBoxLayout(topWidget);
+    topLayout->setContentsMargins(0, 0, 0, 0);
+    topLayout->setSpacing(0);
+    topLayout->addWidget(m_cornerWidget);
+    topLayout->addWidget(m_horizontalRuler);
+
+    // Create main content widget
+    QWidget *mainWidget = new QWidget(centralWidget);
+    QHBoxLayout *mainLayout = new QHBoxLayout(mainWidget);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+    mainLayout->addWidget(m_verticalRuler);
+    mainLayout->addWidget(m_canvas);
+
+    // Assemble the layout
+    centralLayout->addWidget(topWidget);
+    centralLayout->addWidget(mainWidget);
+
+    setCentralWidget(centralWidget);
+
+    // Setup UI components
+    setupDocks();
+    setupToolbars();
+    setupMenus();
+    setupStatusBar();
+
+    // Create tools
+    m_selectTool = new LegacySelectTool(this);
+    m_rectangleTool = new LegacyRectangleTool(this);
+    m_ellipseTool = new LegacyEllipseTool(this);
+    m_bezierTool = new DrawingBezierTool(this);
+    m_nodeEditTool = new DrawingNodeEditTool(this);
+    // m_lineTool = new LineTool(this);      // Not implemented yet
+    // m_polygonTool = new PolygonTool(this);   // Not implemented yet
+    // m_textTool = new TextTool(this);  // Not implemented yet
+
+    // Create layer manager - Not implemented yet
+    // m_layerManager = new LayerManager(this);
+    // m_layerManager->setScene(m_scene);
+
+    // Create initial layer - Not implemented yet
+    // Layer *defaultLayer = m_layerManager->createLayer("图层 1");
+    // m_layerManager->addLayer(defaultLayer);
+    // m_layerManager->setActiveLayer(defaultLayer);
+
+    // Connect layer manager to scene - Not implemented yet
+    // m_scene->setLayerManager(m_layerManager);
+
+    // Connect signals
+    connect(m_scene, &DrawingScene::selectionChanged,
+            this, &MainWindow::onSelectionChanged);
+    connect(m_scene, &DrawingScene::sceneModified,
+            this, &MainWindow::onSceneChanged);
+    // 连接DrawingCanvas的缩放信号
+    connect(m_canvas, &DrawingCanvas::zoomChanged,
+            this, &MainWindow::updateZoomLabel);
+
+    DrawingView *drawingView = qobject_cast<DrawingView *>(m_canvas->view());
+    if (drawingView)
+    {
+        connect(drawingView, &DrawingView::mousePositionChanged,
+                this, [this](const QPointF &pos)
+                { 
+                    m_positionLabel->setText(QString("X: %1, Y: %2").arg(pos.x(), 0, 'f', 1).arg(pos.y(), 0, 'f', 1));
+                    // 更新标尺的鼠标位置
+                    if (m_canvas && m_canvas->view() && m_horizontalRuler && m_verticalRuler) {
+                        // 获取鼠标在视图中的坐标
+                        QPoint viewPos = m_canvas->view()->mapFromScene(pos);
+                        // 直接使用视图坐标，因为标尺和视图是相邻的
+                        // 水平标尺：X坐标与视图对齐，考虑标尺的偏移
+                        // 垂直标尺：Y坐标与视图对齐，考虑标尺的偏移
+                        m_horizontalRuler->setMousePos(QPointF(viewPos.x(), 0));
+                        m_verticalRuler->setMousePos(QPointF(0, viewPos.y()));
+                    } });
+    }
+
+    // 连接视口变化信号来更新标尺坐标
+    DrawingView *drawingView2 = qobject_cast<DrawingView *>(m_canvas->view());
+    if (drawingView2)
+    {
+        connect(drawingView2, &DrawingView::viewportChanged,
+                this, [this, drawingView2]()
+                {
+                    if (m_horizontalRuler && m_verticalRuler && m_canvas && m_canvas->view()) {
+                        // 更新标尺原点以反映当前视图位置
+                        QPoint origin = m_canvas->view()->mapFromScene(QPoint(0, 0));
+                        m_horizontalRuler->setOrigin(origin.x());
+                        m_verticalRuler->setOrigin(origin.y());
+                        
+                        // 同时更新缩放比例
+                        double zoom = drawingView2->zoomLevel();
+                        m_horizontalRuler->setScale(zoom);
+                        m_verticalRuler->setScale(zoom);
+                    } });
+
+        // 初始化标尺
+        if (m_horizontalRuler && m_verticalRuler)
+        {
+            QPoint origin = m_canvas->view()->mapFromScene(QPoint(0, 0));
+            m_horizontalRuler->setOrigin(origin.x());
+            m_verticalRuler->setOrigin(origin.y());
+            m_horizontalRuler->setScale(1.0);
+            m_verticalRuler->setScale(1.0);
+        }
+    }
+
+    // 设置默认工具为选择工具
+    setCurrentTool(m_selectTool);
+}
+
+void MainWindow::setupMenus()
+{
+    // File menu
+    QMenu *fileMenu = menuBar()->addMenu("&文件");
+    fileMenu->addAction(m_newAction);
+    fileMenu->addAction(m_openAction);
+    fileMenu->addAction(m_saveAction);
+    fileMenu->addAction(m_saveAsAction);
+    fileMenu->addSeparator();
+    fileMenu->addAction(m_exportAction);
+    fileMenu->addSeparator();
+    fileMenu->addAction(m_exitAction);
+
+    // Edit menu
+    QMenu *editMenu = menuBar()->addMenu("&编辑");
+    editMenu->addAction(m_undoAction);
+    editMenu->addAction(m_redoAction);
+    editMenu->addSeparator();
+    editMenu->addAction(m_deleteAction);
+    editMenu->addSeparator();
+    editMenu->addAction(m_selectAllAction);
+    editMenu->addAction(m_deselectAllAction);
+    editMenu->addSeparator();
+    editMenu->addAction(m_groupAction);
+    editMenu->addAction(m_ungroupAction);
+    editMenu->addSeparator();
+    editMenu->addAction(m_alignLeftAction);
+    editMenu->addAction(m_alignCenterAction);
+    editMenu->addAction(m_alignRightAction);
+    editMenu->addSeparator();
+    editMenu->addAction(m_alignTopAction);
+    editMenu->addAction(m_alignMiddleAction);
+    editMenu->addAction(m_alignBottomAction);
+
+    // View menu
+    QMenu *viewMenu = menuBar()->addMenu("&View");
+    viewMenu->addAction(m_zoomInAction);
+    viewMenu->addAction(m_zoomOutAction);
+    viewMenu->addAction(m_resetZoomAction);
+    viewMenu->addAction(m_fitToWindowAction);
+    viewMenu->addSeparator();
+    viewMenu->addAction(m_toggleGridAction);
+    viewMenu->addAction(m_toggleGridAlignmentAction);
+    viewMenu->addAction(m_gridSizeAction);
+    viewMenu->addAction(m_gridColorAction);
+
+    // Tools menu
+    QMenu *toolsMenu = menuBar()->addMenu("&工具");
+    toolsMenu->addAction(m_selectToolAction);
+    toolsMenu->addAction(m_rectangleToolAction);
+    toolsMenu->addAction(m_ellipseToolAction);
+    toolsMenu->addAction(m_bezierToolAction);
+    toolsMenu->addAction(m_nodeEditToolAction);
+    // toolsMenu->addAction(m_lineToolAction);     // Not implemented yet
+    // toolsMenu->addAction(m_polygonToolAction);  // Not implemented yet
+    // toolsMenu->addAction(m_textToolAction);  // Not implemented yet
+
+    // Help menu
+    QMenu *helpMenu = menuBar()->addMenu("&帮助");
+    helpMenu->addAction(m_aboutAction);
+}
+
+
+
+void MainWindow::setupToolbars()
+{
+    // 设置工具栏样式 - 支持暗色主题
+    setStyleSheet(R"(
+        QToolBar {
+            spacing: 3px;
+            padding: 4px;
+            background: palette(window);
+            border: 1px solid palette(mid);
+            border-radius: 4px;
+            margin: 2px;
+        }
+        QToolBar QToolButton {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            padding: 4px;
+            margin: 1px;
+        }
+        QToolBar QToolButton:hover {
+            background: palette(highlight);
+            color: palette(highlighted-text);
+        }
+        QToolBar QToolButton:pressed {
+            background: palette(dark);
+            color: palette(bright-text);
+        }
+        QToolBar QToolButton:checked {
+            background: palette(highlight);
+            color: palette(highlighted-text);
+        }
+        QToolBar::separator {
+            background: palette(mid);
+            width: 1px;
+            margin: 4px 2px;
+        }
+    )");
+    
+    // Main toolbar - 只包含文件操作
+    QToolBar *mainToolBar = addToolBar("文件");
+    mainToolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    mainToolBar->setIconSize(QSize(24, 24));
+    mainToolBar->addAction(m_newAction);
+    mainToolBar->addAction(m_openAction);
+    mainToolBar->addAction(m_saveAction);
+    mainToolBar->addSeparator();
+    mainToolBar->addAction(m_undoAction);
+    mainToolBar->addAction(m_redoAction);
+    
+    // 添加文件操作图标
+    m_newAction->setIcon(style()->standardIcon(QStyle::SP_FileIcon));
+    m_openAction->setIcon(style()->standardIcon(QStyle::SP_DialogOpenButton));
+    m_saveAction->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
+    m_undoAction->setIcon(style()->standardIcon(QStyle::SP_ArrowBack));
+    m_redoAction->setIcon(style()->standardIcon(QStyle::SP_ArrowForward));
+
+    // Tools toolbar - moved to left side
+    QToolBar *toolsToolBar = addToolBar("绘图工具");
+    addToolBar(Qt::LeftToolBarArea, toolsToolBar);
+    toolsToolBar->setOrientation(Qt::Vertical);
+    toolsToolBar->setToolButtonStyle(Qt::ToolButtonIconOnly); // 只显示图标
+    toolsToolBar->setIconSize(QSize(32, 32)); // 工具图标稍大一些
+    toolsToolBar->addAction(m_selectToolAction);
+    toolsToolBar->addAction(m_rectangleToolAction);
+    toolsToolBar->addAction(m_ellipseToolAction);
+    toolsToolBar->addAction(m_bezierToolAction);
+    toolsToolBar->addAction(m_nodeEditToolAction);
+    // toolsToolBar->addAction(m_lineToolAction);     // Not implemented yet
+    // toolsToolBar->addAction(m_polygonToolAction);  // Not implemented yet
+    // toolsToolBar->addAction(m_textToolAction);  // Not implemented yet
+
+    // View toolbar - 包含视图、组合和对齐操作
+    QToolBar *viewToolBar = addToolBar("视图");
+    viewToolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    viewToolBar->setIconSize(QSize(24, 24));
+    viewToolBar->addAction(m_zoomInAction);
+    viewToolBar->addAction(m_zoomOutAction);
+    viewToolBar->addAction(m_resetZoomAction);
+    viewToolBar->addAction(m_fitToWindowAction);
+    viewToolBar->addSeparator();
+    viewToolBar->addAction(m_toggleGridAction);
+    viewToolBar->addAction(m_toggleGridAlignmentAction);
+    viewToolBar->addSeparator();
+    // Group and alignment tools
+    viewToolBar->addAction(m_groupAction);
+    viewToolBar->addAction(m_ungroupAction);
+    viewToolBar->addSeparator();
+    // Alignment tools
+    viewToolBar->addAction(m_alignLeftAction);
+    viewToolBar->addAction(m_alignCenterAction);
+    viewToolBar->addAction(m_alignRightAction);
+    viewToolBar->addAction(m_alignTopAction);
+    viewToolBar->addAction(m_alignMiddleAction);
+    viewToolBar->addAction(m_alignBottomAction);
+    
+    // 添加视图操作图标
+    m_zoomInAction->setIcon(style()->standardIcon(QStyle::SP_ArrowUp));
+    m_zoomOutAction->setIcon(style()->standardIcon(QStyle::SP_ArrowDown));
+    m_resetZoomAction->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
+    m_fitToWindowAction->setIcon(style()->standardIcon(QStyle::SP_TitleBarMaxButton));
+    m_toggleGridAction->setIcon(style()->standardIcon(QStyle::SP_DialogResetButton));
+    m_toggleGridAlignmentAction->setIcon(style()->standardIcon(QStyle::SP_MediaSeekForward));
+    
+    // 添加组合和对齐工具图标
+    m_groupAction->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
+    m_ungroupAction->setIcon(style()->standardIcon(QStyle::SP_FileDialogInfoView));
+    m_alignLeftAction->setIcon(style()->standardIcon(QStyle::SP_ArrowLeft));
+    m_alignCenterAction->setIcon(style()->standardIcon(QStyle::SP_TitleBarMinButton));
+    m_alignRightAction->setIcon(style()->standardIcon(QStyle::SP_ArrowRight));
+    m_alignTopAction->setIcon(style()->standardIcon(QStyle::SP_ArrowUp));
+    m_alignMiddleAction->setIcon(style()->standardIcon(QStyle::SP_TitleBarMaxButton));
+    m_alignBottomAction->setIcon(style()->standardIcon(QStyle::SP_ArrowDown));
+}
+
+void MainWindow::setupDocks()
+{
+    // Properties dock
+    QDockWidget *propertiesDock = new QDockWidget("属性", this);
+    m_propertyPanel = new PropertyPanel(propertiesDock);
+    m_propertyPanel->setScene(m_scene);
+    propertiesDock->setWidget(m_propertyPanel);
+    addDockWidget(Qt::RightDockWidgetArea, propertiesDock);
+
+    // Undo history dock
+    QDockWidget *historyDock = new QDockWidget("历史记录", this);
+    m_undoView = new QUndoView(m_scene->undoStack(), historyDock);
+    historyDock->setWidget(m_undoView);
+    addDockWidget(Qt::RightDockWidgetArea, historyDock);
+
+    // Layer panel dock - Not implemented yet
+    // QDockWidget *layerDock = new QDockWidget("图层", this);
+    // LayerPanel *layerPanel = new LayerPanel(layerDock);
+    // layerPanel->setLayerManager(m_layerManager);
+    // layerDock->setWidget(layerPanel);
+    // addDockWidget(Qt::RightDockWidgetArea, layerDock);
+}
+
+void MainWindow::setupStatusBar()
+{
+    m_statusLabel = new QLabel("就绪");
+    statusBar()->addWidget(m_statusLabel);
+
+    m_zoomLabel = new QLabel("100%");
+    statusBar()->addPermanentWidget(m_zoomLabel);
+
+    m_positionLabel = new QLabel("X: 0, Y: 0");
+    statusBar()->addPermanentWidget(m_positionLabel);
+}
+
+void MainWindow::createActions()
+{
+    // File actions
+    m_newAction = new QAction("&新建", this);
+    m_newAction->setShortcut(QKeySequence::New);
+    m_newAction->setStatusTip("创建新文档");
+
+    m_openAction = new QAction("&打开...", this);
+    m_openAction->setShortcut(QKeySequence::Open);
+    m_openAction->setStatusTip("打开现有文档");
+
+    m_saveAction = new QAction("&保存", this);
+    m_saveAction->setShortcut(QKeySequence::Save);
+    m_saveAction->setStatusTip("保存文档到磁盘");
+
+    m_saveAsAction = new QAction("另存为...", this);
+    m_saveAsAction->setShortcut(QKeySequence::SaveAs);
+    m_saveAsAction->setStatusTip("以新名称保存文档");
+
+    m_exportAction = new QAction("&导出...", this);
+    m_exportAction->setStatusTip("导出文档");
+
+    m_exitAction = new QAction("退出(&X)", this);
+    m_exitAction->setShortcut(QKeySequence::Quit);
+    m_exitAction->setStatusTip("退出应用程序");
+
+    // Edit actions
+    m_undoAction = new QAction("&撤销", this);
+    m_undoAction->setShortcut(QKeySequence::Undo);
+    m_undoAction->setStatusTip("撤销上一个操作");
+
+    m_redoAction = new QAction("&重做", this);
+    m_redoAction->setShortcut(QKeySequence::Redo);
+    m_redoAction->setStatusTip("重做上一个操作");
+
+    m_deleteAction = new QAction("&删除", this);
+    m_deleteAction->setShortcut(QKeySequence::Delete);
+    m_deleteAction->setStatusTip("删除选中项目");
+
+    m_selectAllAction = new QAction("全选(&A)", this);
+    m_selectAllAction->setShortcut(QKeySequence::SelectAll);
+    m_selectAllAction->setStatusTip("选择所有项目");
+
+    m_deselectAllAction = new QAction("取消全选(&D)", this);
+    m_deselectAllAction->setShortcut(QKeySequence("Ctrl+Shift+A"));
+    m_deselectAllAction->setStatusTip("取消选择所有项目");
+
+    // View actions
+    m_zoomInAction = new QAction("放大(&I)", this);
+    m_zoomInAction->setShortcut(QKeySequence::ZoomIn);
+    m_zoomInAction->setStatusTip("放大");
+
+    m_zoomOutAction = new QAction("缩小(&O)", this);
+    m_zoomOutAction->setShortcut(QKeySequence::ZoomOut);
+    m_zoomOutAction->setStatusTip("缩小");
+
+    m_resetZoomAction = new QAction("重置缩放(&R)", this);
+    m_resetZoomAction->setShortcut(QKeySequence("Ctrl+0"));
+    m_resetZoomAction->setStatusTip("重置缩放到100%");
+
+    m_fitToWindowAction = new QAction("适应窗口(&F)", this);
+    m_fitToWindowAction->setShortcut(QKeySequence("Ctrl+1"));
+    m_fitToWindowAction->setStatusTip("使视图适应窗口");
+
+    // Grid actions
+    m_toggleGridAction = new QAction("显示网格(&G)", this);
+    m_toggleGridAction->setCheckable(true);
+    m_toggleGridAction->setShortcut(QKeySequence("G"));
+    m_toggleGridAction->setStatusTip("显示或隐藏网格");
+    m_toggleGridAction->setChecked(true); // 默认显示网格
+
+    m_gridSizeAction = new QAction("网格大小...", this);
+    m_gridSizeAction->setStatusTip("设置网格大小");
+
+    m_gridColorAction = new QAction("网格颜色...", this);
+    m_gridColorAction->setStatusTip("设置网格颜色");
+    
+    m_toggleGridAlignmentAction = new QAction("网格对齐(&A)", this);
+    m_toggleGridAlignmentAction->setCheckable(true);
+    m_toggleGridAlignmentAction->setShortcut(QKeySequence("Shift+G"));
+    m_toggleGridAlignmentAction->setStatusTip("启用或禁用网格对齐");
+    m_toggleGridAlignmentAction->setChecked(false); // 默认关闭网格对齐
+    
+    m_groupAction = new QAction("组合(&G)", this);
+    m_groupAction->setShortcut(QKeySequence("Ctrl+G"));
+    m_groupAction->setStatusTip("将选中的项目组合成一个组");
+    
+    m_ungroupAction = new QAction("取消组合(&U)", this);
+    m_ungroupAction->setShortcut(QKeySequence("Ctrl+Shift+G"));
+    m_ungroupAction->setStatusTip("取消选中的组合");
+    
+    // Align actions
+    m_alignLeftAction = new QAction("左对齐(&L)", this);
+    m_alignLeftAction->setStatusTip("将选中的项目左对齐");
+    
+    m_alignCenterAction = new QAction("水平居中(&C)", this);
+    m_alignCenterAction->setStatusTip("将选中的项目水平居中");
+    
+    m_alignRightAction = new QAction("右对齐(&R)", this);
+    m_alignRightAction->setStatusTip("将选中的项目右对齐");
+    
+    m_alignTopAction = new QAction("顶部对齐(&T)", this);
+    m_alignTopAction->setStatusTip("将选中的项目顶部对齐");
+    
+    m_alignMiddleAction = new QAction("垂直居中(&M)", this);
+    m_alignMiddleAction->setStatusTip("将选中的项目垂直居中");
+    
+    m_alignBottomAction = new QAction("底部对齐(&B)", this);
+    m_alignBottomAction->setStatusTip("将选中的项目底部对齐");
+
+    // Tool actions
+    m_toolGroup = new QActionGroup(this);
+
+    m_selectToolAction = new QAction("&选择工具", this);
+    m_selectToolAction->setCheckable(true);
+    m_selectToolAction->setShortcut(QKeySequence("V"));
+    m_selectToolAction->setStatusTip("选择和变换项目");
+    m_selectToolAction->setIcon(QIcon(":/icons/icons/select-tool-new.svg"));
+    m_toolGroup->addAction(m_selectToolAction);
+
+    m_rectangleToolAction = new QAction("&矩形工具", this);
+    m_rectangleToolAction->setCheckable(true);
+    m_rectangleToolAction->setShortcut(QKeySequence("R"));
+    m_rectangleToolAction->setStatusTip("绘制矩形");
+    m_rectangleToolAction->setIcon(QIcon(":/icons/icons/rectangle-tool-new.svg"));
+    m_toolGroup->addAction(m_rectangleToolAction);
+
+    m_ellipseToolAction = new QAction("&椭圆工具", this);
+    m_ellipseToolAction->setCheckable(true);
+    m_ellipseToolAction->setShortcut(QKeySequence("E"));
+    m_ellipseToolAction->setStatusTip("绘制椭圆");
+    m_ellipseToolAction->setIcon(QIcon(":/icons/icons/ellipse-tool-new.svg"));
+    m_toolGroup->addAction(m_ellipseToolAction);
+
+    m_bezierToolAction = new QAction("&贝塞尔曲线工具", this);
+    m_bezierToolAction->setCheckable(true);
+    m_bezierToolAction->setShortcut(QKeySequence("B"));
+    m_bezierToolAction->setStatusTip("绘制贝塞尔曲线");
+    m_bezierToolAction->setIcon(QIcon(":/icons/icons/bezier-tool-new.svg"));
+    m_toolGroup->addAction(m_bezierToolAction);
+    
+    
+    
+    m_nodeEditToolAction = new QAction("节&点编辑工具", this);
+    m_nodeEditToolAction->setCheckable(true);
+    m_nodeEditToolAction->setShortcut(QKeySequence("N"));
+    m_nodeEditToolAction->setStatusTip("编辑图形节点和控制点");
+    m_nodeEditToolAction->setIcon(QIcon(":/icons/icons/node-edit-tool.svg")); // 使用专用节点编辑图标
+    m_toolGroup->addAction(m_nodeEditToolAction);
+
+    // m_lineToolAction = new QAction("&线条工具", this);      // Not implemented yet
+    // m_lineToolAction->setCheckable(true);
+    // m_lineToolAction->setShortcut(QKeySequence("L"));
+    // m_lineToolAction->setStatusTip("绘制线条");
+    // m_toolGroup->addAction(m_lineToolAction);
+
+    // m_polygonToolAction = new QAction("&多边形工具", this);  // Not implemented yet
+    // m_polygonToolAction->setCheckable(true);
+    // m_polygonToolAction->setShortcut(QKeySequence("P"));
+    // m_polygonToolAction->setStatusTip("绘制多边形");
+    // m_toolGroup->addAction(m_polygonToolAction);
+
+    // m_textToolAction = new QAction("&文本工具", this);  // Not implemented yet
+    // m_textToolAction->setCheckable(true);
+    // m_textToolAction->setShortcut(QKeySequence("T"));
+    // m_textToolAction->setStatusTip("添加文本");
+    // m_toolGroup->addAction(m_textToolAction);
+
+    // Help actions
+    m_aboutAction = new QAction("&关于", this);
+    m_aboutAction->setStatusTip("显示应用程序的关于对话框");
+}
+
+void MainWindow::connectActions()
+{
+    // File connections
+    connect(m_newAction, &QAction::triggered, this, &MainWindow::newFile);
+    connect(m_openAction, &QAction::triggered, this, &MainWindow::openFile);
+    connect(m_saveAction, &QAction::triggered, this, &MainWindow::saveFile);
+    connect(m_saveAsAction, &QAction::triggered, this, &MainWindow::saveFileAs);
+    connect(m_exportAction, &QAction::triggered, this, &MainWindow::exportFile);
+    connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
+
+    // Edit connections
+    connect(m_undoAction, &QAction::triggered, this, &MainWindow::undo);
+    connect(m_redoAction, &QAction::triggered, this, &MainWindow::redo);
+    connect(m_deleteAction, &QAction::triggered, this, &MainWindow::deleteSelected);
+    connect(m_selectAllAction, &QAction::triggered, this, &MainWindow::selectAll);
+    connect(m_deselectAllAction, &QAction::triggered, this, &MainWindow::deselectAll);
+
+    // View connections
+    connect(m_zoomInAction, &QAction::triggered, this, &MainWindow::zoomIn);
+    connect(m_zoomOutAction, &QAction::triggered, this, &MainWindow::zoomOut);
+    connect(m_resetZoomAction, &QAction::triggered, this, &MainWindow::resetZoom);
+    connect(m_fitToWindowAction, &QAction::triggered, this, &MainWindow::fitToWindow);
+
+    // Grid connections
+    connect(m_toggleGridAction, &QAction::triggered, this, &MainWindow::toggleGrid);
+    connect(m_gridSizeAction, &QAction::triggered, this, &MainWindow::showGridSettings);
+    connect(m_gridColorAction, &QAction::triggered, this, &MainWindow::showGridSettings);
+    connect(m_toggleGridAlignmentAction, &QAction::triggered, this, &MainWindow::toggleGridAlignment);
+    
+    // Group connections
+    connect(m_groupAction, &QAction::triggered, this, &MainWindow::groupSelected);
+    connect(m_ungroupAction, &QAction::triggered, this, &MainWindow::ungroupSelected);
+    
+    // Align connections
+    connect(m_alignLeftAction, &QAction::triggered, this, &MainWindow::alignLeft);
+    connect(m_alignCenterAction, &QAction::triggered, this, &MainWindow::alignCenter);
+    connect(m_alignRightAction, &QAction::triggered, this, &MainWindow::alignRight);
+    connect(m_alignTopAction, &QAction::triggered, this, &MainWindow::alignTop);
+    connect(m_alignMiddleAction, &QAction::triggered, this, &MainWindow::alignMiddle);
+    connect(m_alignBottomAction, &QAction::triggered, this, &MainWindow::alignBottom);
+
+    // Tool connections
+    connect(m_selectToolAction, &QAction::triggered, this, &MainWindow::selectTool);
+    connect(m_rectangleToolAction, &QAction::triggered, this, &MainWindow::rectangleTool);
+    connect(m_ellipseToolAction, &QAction::triggered, this, &MainWindow::ellipseTool);
+    connect(m_bezierToolAction, &QAction::triggered, this, &MainWindow::bezierTool);
+    
+    connect(m_nodeEditToolAction, &QAction::triggered, this, &MainWindow::nodeEditTool);
+    // connect(m_lineToolAction, &QAction::triggered, this, &MainWindow::lineTool);      // Not implemented yet
+    // connect(m_polygonToolAction, &QAction::triggered, this, &MainWindow::polygonTool);  // Not implemented yet
+    // connect(m_textToolAction, &QAction::triggered, this, &MainWindow::textTool);  // Not implemented yet
+
+    // Help connections
+    connect(m_aboutAction, &QAction::triggered, this, &MainWindow::about);
+}
+
+void MainWindow::setCurrentTool(ToolBase *tool)
+{
+    qDebug() << "setCurrentTool called with tool:" << tool;
+
+    if (m_currentTool)
+    {
+        qDebug() << "Deactivating current tool:" << m_currentTool;
+        m_currentTool->deactivate();
+    }
+
+    m_currentTool = tool;
+
+    if (m_currentTool)
+    {
+        qDebug() << "Activating new tool:" << m_currentTool;
+        DrawingView *drawingView = qobject_cast<DrawingView *>(m_canvas->view());
+        m_currentTool->activate(m_scene, drawingView);
+        if (drawingView)
+        {
+            drawingView->setCurrentTool(m_currentTool);
+        }
+    }
+
+    // 如果切换到非选择工具且不是节点编辑工具，清除场景中的选择
+    if (m_scene && tool != m_selectTool && tool != m_nodeEditTool) {
+        // 隐藏所有路径的控制点连线
+        QList<QGraphicsItem*> items = m_scene->items();
+        for (QGraphicsItem *item : items) {
+            if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(item)) {
+                path->setShowControlPolygon(false);
+            }
+        }
+        m_scene->clearSelection();
+    }
+
+    // Update tool actions
+    if (tool == m_selectTool)
+    {
+        m_selectToolAction->setChecked(true);
+    }
+    else if (tool == m_rectangleTool)
+    {
+        m_rectangleToolAction->setChecked(true);
+    }
+    else if (tool == m_ellipseTool)
+    {
+        m_ellipseToolAction->setChecked(true);
+    }
+    else if (tool == m_bezierTool)
+    {
+        m_bezierToolAction->setChecked(true);
+    }
+    
+    else if (tool == m_nodeEditTool)
+    {
+        m_nodeEditToolAction->setChecked(true);
+    }
+
+    m_statusLabel->setText(QString("工具已更改: %1").arg(tool == m_selectTool ? "选择" : tool == m_rectangleTool ? "矩形"
+                                                                                     : tool == m_ellipseTool     ? "椭圆"
+                                                                                     : tool == m_bezierTool      ? "贝塞尔"
+                                                                                     
+                                                                                     : tool == m_nodeEditTool    ? "节点编辑"
+                                                                                                                 :
+                                                                                                             // tool == m_lineTool ? "线条" :       // Not implemented yet
+                                                                                         // tool == m_polygonTool ? "多边形" : // Not implemented yet
+                                                                                         tool ? "未知"
+                                                                                              : "未知")); // Simplified since TextTool is not implemented
+}
+
+void MainWindow::newFile()
+{
+    if (m_isModified)
+    {
+        QMessageBox::StandardButton reply = QMessageBox::question(this, "QDrawPro",
+                                                                  "文档已修改，是否保存？",
+                                                                  QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+
+        if (reply == QMessageBox::Save)
+        {
+            saveFile();
+        }
+        else if (reply == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
+    m_scene->clearScene();
+    m_currentFile.clear();
+    m_isModified = false;
+    updateUI();
+    m_statusLabel->setText("新文档已创建");
+}
+
+void MainWindow::openFile()
+{
+    QString fileName = QFileDialog::getOpenFileName(this,
+                                                    "打开文档", QDir::homePath(), "QDrawPro Files (*.qdp);;SVG Files (*.svg)");
+
+    if (!fileName.isEmpty())
+    {
+        QFileInfo fileInfo(fileName);
+        if (fileInfo.suffix().toLower() == "svg")
+        {
+            // SVG导入
+            if (SvgHandler::importFromSvg(m_scene, fileName)) {
+                m_statusLabel->setText(QString("SVG文件已导入: %1").arg(fileInfo.fileName()));
+                
+                // 加载完成后调整视图以适应所有内容
+                if (m_canvas) {
+                    m_canvas->fitToWindow();
+                }
+            } else {
+                QMessageBox::warning(this, "导入错误", "无法导入SVG文件");
+            }
+        }
+        else
+        {
+            // QDP文件加载
+            m_statusLabel->setText("QDP文件加载功能尚未实现");
+        }
+    }
+}
+
+void MainWindow::saveFile()
+{
+    if (m_currentFile.isEmpty())
+    {
+        saveFileAs();
+    }
+    else
+    {
+        m_statusLabel->setText("文件保存功能尚未实现");
+    }
+}
+
+void MainWindow::saveFileAs()
+{
+    QString fileName = QFileDialog::getSaveFileName(this,
+                                                    "保存文档", QDir::homePath(), "QDrawPro Files (*.qdp)");
+
+    if (!fileName.isEmpty())
+    {
+        m_currentFile = fileName;
+        m_statusLabel->setText("文件保存功能尚未实现");
+    }
+}
+
+void MainWindow::exportFile()
+{
+    QString fileName = QFileDialog::getSaveFileName(this,
+                                                    "导出文档", QDir::homePath(), "SVG Files (*.svg)");
+
+    if (!fileName.isEmpty())
+    {
+        if (SvgHandler::exportToSvg(m_scene, fileName)) {
+            m_statusLabel->setText(QString("文档已导出到: %1").arg(QFileInfo(fileName).fileName()));
+        } else {
+            QMessageBox::warning(this, "导出错误", "无法导出SVG文件");
+        }
+    }
+}
+
+void MainWindow::undo()
+{
+    m_scene->undoStack()->undo();
+}
+
+void MainWindow::redo()
+{
+    m_scene->undoStack()->redo();
+}
+
+void MainWindow::selectTool()
+{
+    setCurrentTool(m_selectTool);
+}
+
+void MainWindow::rectangleTool()
+{
+    setCurrentTool(m_rectangleTool);
+}
+
+void MainWindow::ellipseTool()
+{
+    setCurrentTool(m_ellipseTool);
+}
+
+void MainWindow::bezierTool()
+{
+    setCurrentTool(m_bezierTool);
+}
+
+
+
+void MainWindow::nodeEditTool()
+{
+    setCurrentTool(m_nodeEditTool);
+}
+
+
+
+// void MainWindow::lineTool()      // Not implemented yet
+// {
+//     setCurrentTool(m_lineTool);
+// }
+
+// void MainWindow::polygonTool()    // Not implemented yet
+// {
+//     setCurrentTool(m_polygonTool);
+// }
+
+// void MainWindow::textTool()  // Not implemented yet
+// {
+//     setCurrentTool(m_textTool);
+// }
+
+// updateZoomLabel implementation is below
+
+void MainWindow::deleteSelected()
+{
+    if (!m_scene)
+        return;
+
+    QList<QGraphicsItem *> selected = m_scene->selectedItems();
+    if (selected.isEmpty())
+        return;
+
+    // 先清除选择，避免在删除过程中出现问题
+    m_scene->clearSelection();
+
+    // 使用撤销栈来删除项目，而不是直接删除
+    foreach (QGraphicsItem *item, selected)
+    {
+        if (item)
+        {
+            // 使用DrawingScene的RemoveItemCommand
+            // 这里我们需要访问DrawingScene的撤销栈
+            m_scene->removeItem(item);
+            // 不要手动删除item，QGraphicsScene会自动管理内存
+        }
+    }
+    m_scene->setModified(true);
+}
+
+void MainWindow::selectAll()
+{
+    foreach (QGraphicsItem *item, m_scene->items())
+    {
+        item->setSelected(true);
+    }
+}
+
+void MainWindow::deselectAll()
+{
+    m_scene->clearSelection();
+}
+
+void MainWindow::zoomIn()
+{
+    m_canvas->zoomIn();
+}
+
+void MainWindow::zoomOut()
+{
+    m_canvas->zoomOut();
+}
+
+void MainWindow::resetZoom()
+{
+    m_canvas->resetZoom();
+}
+
+void MainWindow::fitToWindow()
+{
+    m_canvas->fitToWindow();
+}
+
+void MainWindow::toggleGrid()
+{
+    if (m_scene)
+    {
+        m_scene->setGridVisible(!m_scene->isGridVisible());
+        m_toggleGridAction->setChecked(m_scene->isGridVisible());
+    }
+}
+
+void MainWindow::toggleGridAlignment()
+{
+    if (m_scene)
+    {
+        bool enabled = !m_scene->isGridAlignmentEnabled();
+        m_scene->setGridAlignmentEnabled(enabled);
+        m_toggleGridAlignmentAction->setChecked(enabled);
+        m_statusLabel->setText(enabled ? "网格对齐已启用" : "网格对齐已禁用");
+    }
+}
+
+void MainWindow::groupSelected()
+{
+    if (!m_scene) return;
+    
+    QList<QGraphicsItem *> selected = m_scene->selectedItems();
+    qDebug() << "groupSelected: selected items count:" << selected.size();
+    
+    if (selected.size() < 2) {
+        // 如果没有选中足够多的项目，给出提示
+        m_statusLabel->setText("需要至少选择2个项目才能组合");
+        return;
+    }
+    
+    // 计算所有选中项目的边界
+    QRectF combinedBounds;
+    QList<DrawingShape*> shapesToGroup;
+    QList<QPointF> originalPositions;
+    
+    for (QGraphicsItem *item : selected) {
+        if (item && item->parentItem() == nullptr) {  // 确保项目没有父项
+            DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+            if (shape) {
+                shapesToGroup.append(shape);
+                originalPositions.append(shape->pos());
+                
+                QRectF itemBounds = shape->boundingRect();
+                itemBounds.translate(shape->pos());
+                
+                if (combinedBounds.isEmpty()) {
+                    combinedBounds = itemBounds;
+                } else {
+                    combinedBounds |= itemBounds;
+                }
+            }
+        }
+    }
+    
+    // 创建自定义的DrawingGroup
+    DrawingGroup *group = new DrawingGroup();
+    qDebug() << "groupSelected: created DrawingGroup at" << group;
+    
+    // 设置组的标志，确保它可以被选中和移动
+    group->setFlags(QGraphicsItem::ItemIsMovable | 
+                    QGraphicsItem::ItemIsSelectable | 
+                    QGraphicsItem::ItemSendsGeometryChanges);
+    
+    // 计算包围盒中心（关键！）
+    QPointF center = combinedBounds.center();
+    
+    // 🌟 先设置组合对象的位置到中心点
+    group->setPos(center);
+    
+    qDebug() << "groupSelected: total shapes to group:" << shapesToGroup.size();
+    qDebug() << "groupSelected: group position set to center" << center;
+    
+    // 将组添加到场景中
+    m_scene->addItem(group);
+    
+    // 将选中的项目添加到组中（现在addItem会正确计算相对位置）
+    for (int i = 0; i < shapesToGroup.size(); ++i) {
+        DrawingShape *shape = shapesToGroup[i];
+        group->addItem(shape);
+    }
+    qDebug() << "groupSelected: added group to scene, group type:" << group->type();
+    
+    // 清除之前的选择，并选中新的组合
+    m_scene->clearSelection();
+    group->setSelected(true);
+    qDebug() << "groupSelected: group selected, group isSelected:" << group->isSelected();
+    
+    // 标记场景已修改
+    m_scene->setModified(true);
+    
+    m_statusLabel->setText(QString("已组合 %1 个项目").arg(shapesToGroup.size()));
+}
+
+void MainWindow::ungroupSelected()
+{
+    if (!m_scene) return;
+    
+    QList<QGraphicsItem *> selected = m_scene->selectedItems();
+    qDebug() << "ungroupSelected: selected items count:" << selected.size();
+    
+    if (selected.isEmpty()) {
+        m_statusLabel->setText("没有选中的项目");
+        return;
+    }
+    
+    int ungroupedCount = 0;
+    
+    // 创建一个临时列表来存储要取消组合的组
+    QList<DrawingGroup*> groupsToUngroup;
+    for (QGraphicsItem *item : selected) {
+        qDebug() << "ungroupSelected: checking item:" << item << "type:" << (item ? item->type() : -1);
+        // 使用类型检查而不是qgraphicsitem_cast
+        if (item && item->type() == QGraphicsItem::UserType + 1) {
+            DrawingShape *shape = static_cast<DrawingShape*>(item);
+            if (shape && shape->shapeType() == DrawingShape::Group) {
+                DrawingGroup *group = static_cast<DrawingGroup*>(item);
+                groupsToUngroup.append(group);
+                qDebug() << "ungroupSelected: found DrawingGroup:" << group;
+            }
+        }
+    }
+    
+    for (DrawingGroup *group : groupsToUngroup) {
+        // 先取消选择组，避免选择层保留引用
+        group->setSelected(false);
+        
+        // 取消组合
+        QList<DrawingShape*> shapesToUngroup = group->items();
+        
+        // 将项目从组中移除并添加回场景
+        for (DrawingShape *shape : shapesToUngroup) {
+            // 保存组合的位置
+            QPointF groupPos = group->pos();
+            // 保存子项的相对位置
+            QPointF childPos = shape->pos();
+            
+            group->removeItem(shape);
+            
+            // 计算子项的绝对位置（组合位置 + 相对位置）
+            QPointF absolutePos = groupPos + childPos;
+            shape->setPos(absolutePos);
+            
+            // 确保子项在场景中
+            if (!shape->scene()) {
+                m_scene->addItem(shape);
+            }
+        }
+        
+        // 从场景中移除组
+        m_scene->removeItem(group);
+        
+        // 删除组对象
+        delete group;
+        
+        ungroupedCount++;
+    }
+    
+    if (ungroupedCount > 0) {
+        // 清除选择，触发选择状态更新
+        m_scene->clearSelection();
+        
+        // 确保选择层更新
+        if (m_scene->selectionLayer()) {
+            m_scene->selectionLayer()->updateSelectionBounds();
+        }
+        
+        // 确保场景选择状态更新
+        m_scene->update(); // 触发场景重绘
+        
+        m_scene->setModified(true);
+        m_statusLabel->setText(QString("已取消组合 %1 个组").arg(ungroupedCount));
+    } else {
+        m_statusLabel->setText("没有选中的组合项目");
+    }
+}
+
+void MainWindow::showGridSettings()
+{
+    // 这里可以创建一个设置对话框来配置网格
+    // 暂时使用简单的消息框
+    if (m_scene)
+    {
+        bool ok;
+        int size = QInputDialog::getInt(this, "网格设置",
+                                        "请输入网格大小 (像素):",
+                                        m_scene->gridSize(),
+                                        5, 100, 1, &ok);
+        if (ok)
+        {
+            m_scene->setGridSize(size);
+        }
+
+        // 询问用户是否要更改网格颜色
+        QColor color = QColorDialog::getColor(m_scene->gridColor(), this, "选择网格颜色");
+        if (color.isValid())
+        {
+            m_scene->setGridColor(color);
+        }
+    }
+}
+
+void MainWindow::updateZoomLabel()
+{
+    if (m_horizontalRuler && m_verticalRuler && m_canvas)
+    {
+        double zoom = m_canvas->zoomLevel();
+        m_horizontalRuler->setScale(zoom);
+        m_verticalRuler->setScale(zoom);
+
+        // 更新缩放标签
+        m_zoomLabel->setText(QString("%1%").arg(qRound(zoom * 100)));
+    }
+}
+
+void MainWindow::about()
+{
+    QMessageBox::about(this, "关于 QDrawPro",
+                       "QDrawPro - 矢量绘图应用\\n\\n"
+                       "一个基于Qt的矢量绘图应用程序，灵感来自Inkscape。\\n\\n"
+                       "功能：\\n"
+                       "• 基本绘图工具（矩形、椭圆）\\n"
+                       "• 选择和变换\\n"
+                       "• 撤销/重做支持\\n"
+                       "• 属性面板\\n"
+                       "• 现代Qt GraphicsView框架");
+}
+
+void MainWindow::onSelectionChanged()
+{
+    updateUI();
+    if (m_propertyPanel)
+    {
+        m_propertyPanel->onSelectionChanged();
+    }
+}
+
+void MainWindow::onSceneChanged()
+{
+    m_isModified = true;
+}
+
+void MainWindow::mouseMoveEvent(QMouseEvent *event)
+{
+    // 更新标尺显示鼠标位置
+    if (m_canvas && m_canvas->view() && m_horizontalRuler && m_verticalRuler)
+    {
+        // 获取鼠标在视图中的位置
+        QPoint viewPos = event->pos();
+        m_horizontalRuler->setMousePos(QPointF(viewPos.x(), viewPos.y()));
+        m_verticalRuler->setMousePos(QPointF(viewPos.x(), viewPos.y()));
+    }
+    QMainWindow::mouseMoveEvent(event);
+}
+
+void MainWindow::updateUI()
+{
+    // Update window title
+    QString title = "QDrawPro - 矢量绘图应用";
+    if (!m_currentFile.isEmpty())
+    {
+        title += " - " + QFileInfo(m_currentFile).fileName();
+    }
+    if (m_isModified)
+    {
+        title += " *";
+    }
+    setWindowTitle(title);
+
+    // Update undo/redo actions
+    if (m_scene && m_scene->undoStack())
+    {
+        m_undoAction->setEnabled(m_scene->undoStack()->canUndo());
+        m_redoAction->setEnabled(m_scene->undoStack()->canRedo());
+    }
+    else
+    {
+        m_undoAction->setEnabled(false);
+        m_redoAction->setEnabled(false);
+    }
+
+    // Update delete action
+    bool hasSelection = m_scene && !m_scene->selectedItems().isEmpty();
+    m_deleteAction->setEnabled(hasSelection);
+    
+    // Update group/ungroup actions
+    if (m_scene) {
+        QList<QGraphicsItem *> selected = m_scene->selectedItems();
+        bool hasMultipleSelection = selected.size() > 1;
+        bool hasGroupSelection = false;
+        
+        // 检查是否有选中的组
+        for (QGraphicsItem *item : selected) {
+            qDebug() << "updateSelection: checking item" << item << "type:" << (item ? item->type() : -1);
+            // 使用类型检查而不是qgraphicsitem_cast
+        if (item && item->type() == QGraphicsItem::UserType + 1) {
+            DrawingShape *shape = static_cast<DrawingShape*>(item);
+            if (shape && shape->shapeType() == DrawingShape::Group) {
+                qDebug() << "updateSelection: found DrawingGroup:" << item;
+                hasGroupSelection = true;
+                break;
+            }
+        }
+        }
+        
+        m_groupAction->setEnabled(hasMultipleSelection);
+        m_ungroupAction->setEnabled(hasGroupSelection);
+    } else {
+        m_groupAction->setEnabled(false);
+        m_ungroupAction->setEnabled(false);
+    }
+
+    // Update save action
+    m_saveAction->setEnabled(m_isModified);
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    
+    // 更新标尺以适应新的窗口大小
+    if (m_canvas && m_canvas->view() && m_horizontalRuler && m_verticalRuler) {
+        // 更新标尺原点以反映当前视图位置
+        QPoint origin = m_canvas->view()->mapFromScene(QPoint(0, 0));
+        m_horizontalRuler->setOrigin(origin.x());
+        m_verticalRuler->setOrigin(origin.y());
+        
+        // 更新缩放比例
+        DrawingView *drawingView = qobject_cast<DrawingView *>(m_canvas->view());
+        if (drawingView) {
+            double zoom = drawingView->zoomLevel();
+            m_horizontalRuler->setScale(zoom);
+            m_verticalRuler->setScale(zoom);
+        }
+        
+        // 触发重绘
+        m_horizontalRuler->update();
+        m_verticalRuler->update();
+    }
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (m_isModified)
+    {
+        QMessageBox::StandardButton reply = QMessageBox::question(this, "QDrawPro",
+                                                                  "文档已修改，是否保存？",
+                                                                  QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+
+        if (reply == QMessageBox::Save)
+        {
+            saveFile();
+        }
+        else if (reply == QMessageBox::Cancel)
+        {
+            event->ignore();
+            return;
+        }
+    }
+
+    event->accept();
+}
+
+void MainWindow::alignLeft()
+{
+    if (!m_scene) return;
+    
+    QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+    if (selectedItems.isEmpty()) {
+        m_statusLabel->setText("没有选中的项目");
+        return;
+    }
+    
+    // 计算所有选中项目的最左边界
+    qreal leftmost = std::numeric_limits<qreal>::max();
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        leftmost = qMin(leftmost, bounds.left());
+    }
+    
+    // 将所有项目对齐到最左边界
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        qreal deltaX = leftmost - bounds.left();
+        item->setPos(item->pos().x() + deltaX, item->pos().y());
+    }
+    
+    m_scene->update();
+    m_scene->setModified(true);
+    m_statusLabel->setText(QString("已左对齐 %1 个项目").arg(selectedItems.size()));
+}
+
+void MainWindow::alignCenter()
+{
+    if (!m_scene) return;
+    
+    QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+    if (selectedItems.isEmpty()) {
+        m_statusLabel->setText("没有选中的项目");
+        return;
+    }
+    
+    // 计算所有选中项目的中心位置
+    qreal leftmost = std::numeric_limits<qreal>::max();
+    qreal rightmost = std::numeric_limits<qreal>::lowest();
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        leftmost = qMin(leftmost, bounds.left());
+        rightmost = qMax(rightmost, bounds.right());
+    }
+    
+    qreal centerX = (leftmost + rightmost) / 2.0;
+    
+    // 将所有项目水平居中对齐
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        qreal itemCenterX = (bounds.left() + bounds.right()) / 2.0;
+        qreal deltaX = centerX - itemCenterX;
+        item->setPos(item->pos().x() + deltaX, item->pos().y());
+    }
+    
+    m_scene->update();
+    m_scene->setModified(true);
+    m_statusLabel->setText(QString("已水平居中对齐 %1 个项目").arg(selectedItems.size()));
+}
+
+void MainWindow::alignRight()
+{
+    if (!m_scene) return;
+    
+    QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+    if (selectedItems.isEmpty()) {
+        m_statusLabel->setText("没有选中的项目");
+        return;
+    }
+    
+    // 计算所有选中项目的最右边界
+    qreal rightmost = std::numeric_limits<qreal>::lowest();
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        rightmost = qMax(rightmost, bounds.right());
+    }
+    
+    // 将所有项目对齐到最右边界
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        qreal deltaX = rightmost - bounds.right();
+        item->setPos(item->pos().x() + deltaX, item->pos().y());
+    }
+    
+    m_scene->update();
+    m_scene->setModified(true);
+    m_statusLabel->setText(QString("已右对齐 %1 个项目").arg(selectedItems.size()));
+}
+
+void MainWindow::alignTop()
+{
+    if (!m_scene) return;
+    
+    QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+    if (selectedItems.isEmpty()) {
+        m_statusLabel->setText("没有选中的项目");
+        return;
+    }
+    
+    // 计算所有选中项目的最顶边界
+    qreal topmost = std::numeric_limits<qreal>::max();
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        topmost = qMin(topmost, bounds.top());
+    }
+    
+    // 将所有项目对齐到最顶边界
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        qreal deltaY = topmost - bounds.top();
+        item->setPos(item->pos().x(), item->pos().y() + deltaY);
+    }
+    
+    m_scene->update();
+    m_scene->setModified(true);
+    m_statusLabel->setText(QString("已顶部对齐 %1 个项目").arg(selectedItems.size()));
+}
+
+void MainWindow::alignMiddle()
+{
+    if (!m_scene) return;
+    
+    QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+    if (selectedItems.isEmpty()) {
+        m_statusLabel->setText("没有选中的项目");
+        return;
+    }
+    
+    // 计算所有选中项目的中心位置
+    qreal topmost = std::numeric_limits<qreal>::max();
+    qreal bottommost = std::numeric_limits<qreal>::lowest();
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        topmost = qMin(topmost, bounds.top());
+        bottommost = qMax(bottommost, bounds.bottom());
+    }
+    
+    qreal centerY = (topmost + bottommost) / 2.0;
+    
+    // 将所有项目垂直居中对齐
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        qreal itemCenterY = (bounds.top() + bounds.bottom()) / 2.0;
+        qreal deltaY = centerY - itemCenterY;
+        item->setPos(item->pos().x(), item->pos().y() + deltaY);
+    }
+    
+    m_scene->update();
+    m_scene->setModified(true);
+    m_statusLabel->setText(QString("已垂直居中对齐 %1 个项目").arg(selectedItems.size()));
+}
+
+void MainWindow::alignBottom()
+{
+    if (!m_scene) return;
+    
+    QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+    if (selectedItems.isEmpty()) {
+        m_statusLabel->setText("没有选中的项目");
+        return;
+    }
+    
+    // 计算所有选中项目的最底边界
+    qreal bottommost = std::numeric_limits<qreal>::lowest();
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        bottommost = qMax(bottommost, bounds.bottom());
+    }
+    
+    // 将所有项目对齐到最底边界
+    for (QGraphicsItem* item : selectedItems) {
+        QRectF bounds = item->boundingRect();
+        bounds.translate(item->pos());
+        qreal deltaY = bottommost - bounds.bottom();
+        item->setPos(item->pos().x(), item->pos().y() + deltaY);
+    }
+    
+    m_scene->update();
+    m_scene->setModified(true);
+    m_statusLabel->setText(QString("已底部对齐 %1 个项目").arg(selectedItems.size()));
+}

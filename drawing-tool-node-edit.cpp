@@ -1,0 +1,630 @@
+#include "drawing-tool-node-edit.h"
+#include "drawingscene.h"
+#include "drawing-shape.h"
+#include "drawing-edit-handles.h"
+#include <QMouseEvent>
+#include <QGraphicsScene>
+#include <QGraphicsItem>
+#include <QDebug>
+
+DrawingNodeEditTool::DrawingNodeEditTool(QObject *parent)
+    : ToolBase(parent)
+    , m_selectedShape(nullptr)
+    , m_activeHandle(nullptr)
+    , m_dragging(false)
+    , m_nodeHandles()
+{
+}
+
+DrawingNodeEditTool::~DrawingNodeEditTool()
+{
+    clearNodeHandles();
+}
+
+bool DrawingNodeEditTool::mousePressEvent(QMouseEvent *event, const QPointF &scenePos)
+{
+    if (!m_scene) return false;
+    
+    if (event->button() == Qt::LeftButton) {
+        // 检查是否点击了节点手柄
+        QGraphicsItem *item = m_scene->itemAt(scenePos, QTransform());
+        EditHandle *handle = qgraphicsitem_cast<EditHandle*>(item);
+        
+        if (handle) {
+            // 额外验证：确保这个handle在我们的m_nodeHandles数组中
+            bool isOurHandle = false;
+            for (EditHandle *ourHandle : m_nodeHandles) {
+                if (ourHandle == handle) {
+                    isOurHandle = true;
+                    break;
+                }
+            }
+            
+            if (!isOurHandle) {
+                return false;
+            }
+            
+            // 点击了节点手柄，开始拖动
+            m_activeHandle = handle;
+            m_dragging = true;
+            m_dragStartPos = scenePos;
+            
+            // 获取手柄索引（在m_nodeHandles数组中的位置）
+            int nodeIndex = -1;
+            for (int i = 0; i < m_nodeHandles.size(); ++i) {
+                if (m_nodeHandles[i] == handle) {
+                    nodeIndex = i;
+                    break;
+                }
+            }
+            
+            if (nodeIndex == -1) {
+                return false;
+            }
+            
+            // 通知图形开始拖动节点
+            if (m_selectedShape) {
+                m_selectedShape->beginNodeDrag(nodeIndex);
+                
+                // 保存原始值用于撤销
+                QVector<QPointF> nodePoints = m_selectedShape->getNodePoints();
+                if (nodeIndex < nodePoints.size()) {
+                    m_originalValue = m_selectedShape->mapToScene(nodePoints[nodeIndex]);
+                }
+            }
+            
+            return true;
+        } else {
+            // 点击了空白区域或其他对象，清除当前节点手柄
+            clearNodeHandles();
+            
+            // 检查是否点击了图形
+            QGraphicsItem *clickedItem = m_scene->itemAt(scenePos, QTransform());
+            
+            // 跳过DrawingLayer
+            if (clickedItem && clickedItem->type() == QGraphicsItem::UserType + 100) {
+                qDebug() << "Node edit tool: clicked on DrawingLayer, skipping";
+                return false;
+            }
+            
+            DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(clickedItem);
+            
+            if (shape) {
+                // 如果之前有选中的图形且是路径类型，隐藏其控制点连线
+                if (m_selectedShape) {
+                    if (DrawingPath *oldPath = qgraphicsitem_cast<DrawingPath*>(m_selectedShape)) {
+                        oldPath->setShowControlPolygon(false);
+                    }
+                }
+                
+                // 禁用之前图形的几何变换手柄
+                if (m_selectedShape) {
+                    m_selectedShape->setEditHandlesEnabled(false);
+                }
+                
+                // 选中新的图形
+                m_selectedShape = shape;
+                
+                // 隐藏选择边框，只显示节点手柄
+                shape->setShowSelectionIndicator(false);
+                
+                // 禁用几何变换手柄（因为我们要显示节点手柄）
+                shape->setEditHandlesEnabled(false);
+                
+                // 在节点编辑状态下，禁用图形的移动功能
+                shape->setFlag(QGraphicsItem::ItemIsMovable, false);
+                
+                // 如果是路径类型，启用控制点连线显示
+                if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(shape)) {
+                    path->setShowControlPolygon(true);
+                }
+                
+                updateNodeHandles();
+                return true;
+            } else {
+                // 点击了空白区域，清除选择
+                if (m_selectedShape) {
+                    // 如果之前选中的图形是路径类型，隐藏其控制点连线
+                    if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(m_selectedShape)) {
+                        path->setShowControlPolygon(false);
+                    }
+                    // 恢复图形的移动功能
+                    m_selectedShape->setFlag(QGraphicsItem::ItemIsMovable, true);
+                    // 取消图形的选择状态，但不显示选择边框
+                    m_selectedShape->setSelected(false);
+                    m_selectedShape = nullptr;
+                }
+                
+                // 清除场景选择
+                m_scene->clearSelection();
+            }
+        }
+    }
+    
+    // 在节点编辑状态下，不调用父类的mousePressEvent，以防止图形被移动
+    return false;
+}
+
+bool DrawingNodeEditTool::mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos)
+{
+    if (m_dragging && m_activeHandle && m_selectedShape) {
+        // 检查图形是否仍然有效
+        if (!m_selectedShape->scene()) {
+            qDebug() << "Shape is no longer in scene during drag, stopping drag";
+            m_dragging = false;
+            m_activeHandle = nullptr;
+            clearNodeHandles();
+            m_selectedShape = nullptr;
+            return false;
+        }
+        // 获取手柄索引（在m_nodeHandles数组中的位置）
+        int nodeIndex = -1;
+        for (int i = 0; i < m_nodeHandles.size(); ++i) {
+            if (m_nodeHandles[i] == m_activeHandle) {
+                nodeIndex = i;
+                break;
+            }
+        }
+        
+        if (nodeIndex == -1) {
+            return false;
+        }
+        
+        // 应用网格对齐（如果启用）
+        QPointF alignedScenePos = scenePos;
+        if (m_scene) {
+            DrawingScene *drawingScene = qobject_cast<DrawingScene*>(m_scene);
+            if (drawingScene && drawingScene->isGridAlignmentEnabled()) {
+                alignedScenePos = drawingScene->alignToGrid(scenePos);
+            }
+        }
+        
+        // 更新正在拖动的手柄位置到鼠标位置（确保视觉上跟随鼠标）
+        m_activeHandle->setPos(alignedScenePos);
+        
+        // 获取图形的变换
+        DrawingTransform transform = m_selectedShape->transform();
+        
+        // 首先使用Qt的内置方法将场景坐标转换为图形本地坐标
+        QPointF localPos = m_selectedShape->mapFromScene(alignedScenePos);
+        
+        // 然后应用DrawingTransform的逆变换来获取真正的本地坐标
+        localPos = transform.transform().inverted().map(localPos);
+        
+        // 直接传递场景坐标给setNodePoint，让图形自己处理坐标转换
+        m_selectedShape->setNodePoint(nodeIndex, alignedScenePos);
+        
+        // 获取更新后的节点点位置并更新手柄位置，以确保视觉和内部状态一致
+        QVector<QPointF> nodePoints = m_selectedShape->getNodePoints();
+        if (nodeIndex < nodePoints.size()) {
+            // 首先应用DrawingTransform变换
+            QPointF transformedPoint = transform.transform().map(nodePoints[nodeIndex]);
+            // 然后使用Qt的内置方法将结果转换为场景坐标
+            QPointF updatedScenePos = m_selectedShape->mapToScene(transformedPoint);
+            m_activeHandle->setPos(updatedScenePos);
+        }
+        
+        // 只更新其他手柄的位置，而不是重新创建所有手柄
+        updateOtherNodeHandles(nodeIndex, alignedScenePos);
+        
+        // 触发场景重绘
+        if (m_scene) {
+            m_scene->update();
+        }
+        
+        return true;
+    }
+    
+    // 在节点编辑状态下，不调用父类的mouseMoveEvent，以防止图形被移动
+    return false;
+}
+
+bool DrawingNodeEditTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos)
+{
+    if (event->button() == Qt::LeftButton && m_dragging) {
+        // 获取手柄索引（在m_nodeHandles数组中的位置）
+        int nodeIndex = -1;
+        if (m_activeHandle) {
+            for (int i = 0; i < m_nodeHandles.size(); ++i) {
+                if (m_nodeHandles[i] == m_activeHandle) {
+                    nodeIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        // 通知图形结束拖动节点
+        if (m_selectedShape && nodeIndex != -1) {
+            m_selectedShape->endNodeDrag(nodeIndex);
+        }
+        
+        // 结束拖动
+        m_dragging = false;
+        m_activeHandle = nullptr;
+        
+        // 如果有选中的图形，更新其显示
+        if (m_selectedShape) {
+            m_selectedShape->update();
+        }
+        
+        // 标记场景已修改
+        if (m_scene) {
+            m_scene->setModified(true);
+        }
+        
+        return true;
+    }
+    
+    // 在节点编辑状态下，不调用父类的mouseReleaseEvent，以防止图形被移动
+    return false;
+}
+
+void DrawingNodeEditTool::activate(DrawingScene *scene, DrawingView *view)
+{
+    ToolBase::activate(scene, view);
+    qDebug() << "Node edit tool activated";
+    
+    // 清除之前选中的图形
+    m_selectedShape = nullptr;
+    
+    // 在节点编辑状态下，禁用场景中所有图形的移动功能
+    if (m_scene) {
+        QList<QGraphicsItem*> allItems = m_scene->items();
+        for (QGraphicsItem *item : allItems) {
+            DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+            if (shape) {
+                // 确保图形的移动功能被禁用
+                shape->setFlag(QGraphicsItem::ItemIsMovable, false);
+                // 同时禁用编辑手柄，避免显示选择工具的手柄
+                shape->setEditHandlesEnabled(false);
+            }
+        }
+        
+        // 检查场景中是否有选中的图形
+        QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+        qDebug() << "Node edit tool: checking selected items, count:" << selectedItems.size();
+        
+        for (QGraphicsItem *item : selectedItems) {
+            // 跳过DrawingLayer
+            if (item->type() == QGraphicsItem::UserType + 100) {
+                qDebug() << "Node edit tool: skipping DrawingLayer item";
+                continue;
+            }
+            
+            DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+            if (shape) {  // 处理所有选中的图形
+                qDebug() << "Node edit tool: found selected shape, type:" << shape->shapeType();
+                // 隐藏选择边框，只显示节点手柄
+                shape->setShowSelectionIndicator(false);
+                // 设置第一个选中的图形为当前编辑的图形
+                m_selectedShape = shape;
+                
+                // 如果是路径类型，启用控制点连线显示
+                if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(shape)) {
+                    path->setShowControlPolygon(true);
+                }
+                
+                break;
+            }
+        }
+        
+        // 如果没有选中的图形，尝试获取场景中的第一个图形
+        if (!m_selectedShape && !m_scene->items().isEmpty()) {
+            QList<QGraphicsItem*> allItems = m_scene->items();
+            for (QGraphicsItem *item : allItems) {
+                // 跳过DrawingLayer
+                if (item->type() == QGraphicsItem::UserType + 100) {
+                    continue;
+                }
+                
+                DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+                if (shape) {
+                    qDebug() << "Node edit tool: no selected shape, using first available shape, type:" << shape->shapeType();
+                    // 选中这个图形
+                    shape->setSelected(true);
+                    m_selectedShape = shape;
+                    
+                    // 隐藏选择边框，只显示节点手柄
+                    shape->setShowSelectionIndicator(false);
+                    
+                    // 如果是路径类型，启用控制点连线显示
+                    if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(shape)) {
+                        path->setShowControlPolygon(true);
+                    }
+                    
+                    break;
+                }
+            }
+        }
+    }
+    
+    // 如果有选中的图形，让图形自己处理节点显示
+    // 路径已经在paintShape中绘制控制点，其他图形通过updateNodeHandles显示手柄
+    if (m_selectedShape) {
+        bool isPath = (m_selectedShape->shapeType() == DrawingShape::Path);
+        qDebug() << "Node edit tool: selected shape is path:" << (isPath ? "yes" : "no");
+        if (!isPath) {
+            qDebug() << "Node edit tool: calling updateNodeHandles for non-path shape";
+            updateNodeHandles();
+        } else {
+            qDebug() << "Node edit tool: skipping updateNodeHandles for path shape";
+        }
+    } else {
+        qDebug() << "Node edit tool: no selected shape";
+    }
+    
+    // 连接场景的选择变化信号，以便在选择变化时更新节点手柄
+    if (m_scene) {
+        connect(m_scene, &DrawingScene::selectionChanged, this, &DrawingNodeEditTool::onSceneSelectionChanged, Qt::UniqueConnection);
+    }
+}
+
+void DrawingNodeEditTool::deactivate()
+{
+    // 如果正在拖动，先结束拖动
+    if (m_dragging && m_selectedShape) {
+        // 结束任何正在进行的节点拖动
+        int nodeIndex = -1;
+        if (m_activeHandle) {
+            for (int i = 0; i < m_nodeHandles.size(); ++i) {
+                if (m_nodeHandles[i] == m_activeHandle) {
+                    nodeIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        if (m_selectedShape && nodeIndex != -1) {
+            m_selectedShape->endNodeDrag(nodeIndex);
+        }
+        
+        // 结束拖动状态
+        m_dragging = false;
+        m_activeHandle = nullptr;
+    }
+    
+    // 清除节点手柄
+    clearNodeHandles();
+    
+    // 在退出节点编辑工具时，恢复场景中所有图形的移动功能
+    if (m_scene) {
+        QList<QGraphicsItem*> allItems = m_scene->items();
+        for (QGraphicsItem *item : allItems) {
+            DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+            if (shape) {
+                shape->setFlag(QGraphicsItem::ItemIsMovable, true);
+            }
+        }
+    }
+    
+    // 如果当前有编辑的图形，取消其选中状态
+    if (m_selectedShape) {
+        // 重新获取图形在场景中的状态以确保安全性
+        DrawingShape *shape = m_selectedShape;
+        
+        // 检查图形是否仍然存在于场景中
+        if (shape && shape->scene()) {
+            // 如果是路径类型，隐藏控制点连线
+            if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(shape)) {
+                if (path->showControlPolygon()) {
+                    path->setShowControlPolygon(false);
+                }
+            }
+            
+            // 取消图形的选中状态
+            shape->setSelected(false);
+            
+            // 恢复选择边框的显示（为下次选择做准备）
+            shape->setShowSelectionIndicator(true);
+            
+            // 禁用几何变换手柄（因为图形不再被选中）
+            shape->setEditHandlesEnabled(false);
+        }
+    }
+    
+    // 断开场景的选择变化信号连接
+    if (m_scene) {
+        disconnect(m_scene, &DrawingScene::selectionChanged, this, &DrawingNodeEditTool::onSceneSelectionChanged);
+    }
+    
+    m_selectedShape = nullptr;
+    m_activeHandle = nullptr;
+    m_dragging = false;
+    
+    ToolBase::deactivate();
+    qDebug() << "Node edit tool deactivated";
+}
+
+void DrawingNodeEditTool::onSceneSelectionChanged()
+{
+    if (!m_scene) return;
+    
+    // 获取当前选中的项目
+    QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+    
+    // 检查是否有选中的图形
+    DrawingShape *selectedShape = nullptr;
+    for (QGraphicsItem *item : selectedItems) {
+        DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+        if (shape) {
+            selectedShape = shape;
+            break;
+        }
+    }
+    
+    // 如果选中的图形与当前编辑的图形不同
+    if (selectedShape != m_selectedShape) {
+        // 清除当前节点手柄
+        clearNodeHandles();
+        
+        // 如果之前有选中的图形，隐藏其编辑状态但不恢复选择边框
+        if (m_selectedShape) {
+            // 如果是路径类型，隐藏控制点连线
+            if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(m_selectedShape)) {
+                path->setShowControlPolygon(false);
+            }
+            
+            // 不恢复选择边框和几何变换手柄，因为我们要保持图形的未选中状态
+            // 取消图形的选择状态
+            m_selectedShape->setSelected(false);
+        }
+        
+        // 设置新的选中图形
+        m_selectedShape = selectedShape;
+        
+        if (m_selectedShape) {
+            // 隐藏选择边框，只显示节点手柄
+            m_selectedShape->setShowSelectionIndicator(false);
+            
+            // 禁用几何变换手柄（因为我们要显示节点手柄）
+            m_selectedShape->setEditHandlesEnabled(false);
+            
+            // 如果是路径类型，启用控制点连线显示
+            if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(m_selectedShape)) {
+                path->setShowControlPolygon(true);
+            }
+            
+            // 更新节点手柄
+            updateNodeHandles();
+        }
+    } else if (m_selectedShape) {
+        // 如果当前选中的图形没有变化，但可能其节点点发生了变化，更新手柄位置
+        updateNodeHandles();
+    }
+}
+
+void DrawingNodeEditTool::updateNodeHandles()
+{
+    if (!m_selectedShape || !m_scene) return;
+    
+    // 检查选中的图形是否仍然有效且在场景中
+    if (!m_selectedShape->scene()) {
+        qDebug() << "Selected shape is no longer in scene, clearing selection";
+        m_selectedShape = nullptr;
+        clearNodeHandles();
+        return;
+    }
+    
+    // 保存当前激活的handle信息
+    EditHandle *oldActiveHandle = m_activeHandle;
+    int oldActiveIndex = -1;
+    if (oldActiveHandle) {
+        // 遍历m_nodeHandles来找到旧的激活手柄的索引
+        for (int i = 0; i < m_nodeHandles.size(); ++i) {
+            if (m_nodeHandles[i] == oldActiveHandle) {
+                oldActiveIndex = i;
+                break;
+            }
+        }
+    }
+    
+    // 清除现有的节点手柄
+    clearNodeHandles();
+    
+    // 获取图形的节点点（这些是图形内部的控制点）
+    QVector<QPointF> nodePoints = m_selectedShape->getNodePoints();
+    
+    // 调试：检查图形类型
+    qDebug() << "updateNodeHandles for shape type:" << m_selectedShape->shapeType() 
+             << "with" << nodePoints.size() << "node points";
+    
+    // 获取图形的变换
+    DrawingTransform transform = m_selectedShape->transform();
+    
+    // 调试：输出图形的变换信息
+    qDebug() << "Shape transform - rotation:" << transform.rotation() 
+             << "position:" << m_selectedShape->pos();
+    
+    // 使用shapeType()而不是类型转换来判断，避免类型转换问题
+    if (m_selectedShape->shapeType() == DrawingShape::Path) {
+        qDebug() << "Shape is Path (type 2), skipping handle creation entirely";
+        return; // 直接返回，不创建任何手柄
+    }
+    
+    for (int i = 0; i < nodePoints.size(); ++i) {
+        QPointF point = nodePoints[i];
+        
+        // 首先应用DrawingTransform变换
+        point = transform.transform().map(point);
+        
+        // 然后使用Qt的内置方法将结果转换为场景坐标（考虑图形位置）
+        point = m_selectedShape->mapToScene(point);
+        
+        // 根据图形类型和索引确定手柄类型
+        EditHandle::HandleType handleType = EditHandle::Custom;
+        if (m_selectedShape->shapeType() == DrawingShape::Rectangle) {
+            // 矩形：第一个点是圆角控制（圆形），第二个点是尺寸控制（方形）
+            handleType = (i == 0) ? EditHandle::CornerRadius : EditHandle::SizeControl;
+        } else if (m_selectedShape->shapeType() == DrawingShape::Ellipse) {
+            // 椭圆：前两个点是尺寸控制（方形），后两个点是弧度控制（圆形）
+            if (i < 2) {
+                handleType = EditHandle::SizeControl; // 尺寸控制点
+            } else {
+                handleType = EditHandle::ArcControl; // 角度控制点
+            }
+        } else {
+            // 其他类型，使用自定义类型
+            handleType = static_cast<EditHandle::HandleType>(static_cast<int>(EditHandle::Custom) + i);
+            qDebug() << "Other shape type, creating custom handle for point" << i << "with type" << handleType;
+        }
+        
+        // 创建节点手柄
+        qDebug() << "Creating handle for point" << i << "with type" << handleType << "at position" << point;
+        EditHandle *handle = new EditHandle(handleType, static_cast<QGraphicsItem*>(nullptr));
+        handle->setPos(point);
+        m_scene->addItem(handle);
+        
+        // 保存手柄引用
+        m_nodeHandles.append(handle);
+        qDebug() << "Total handles created:" << m_nodeHandles.size();
+    }
+    
+    // 恢复激活状态
+    if (oldActiveIndex >= 0 && oldActiveIndex < m_nodeHandles.size()) {
+        m_activeHandle = m_nodeHandles[oldActiveIndex];
+    }
+}
+
+void DrawingNodeEditTool::updateOtherNodeHandles(int draggedIndex, const QPointF &draggedPos)
+{
+    if (!m_selectedShape || !m_scene) return;
+    
+    // 获取图形的节点点和变换
+    QVector<QPointF> nodePoints = m_selectedShape->getNodePoints();
+    DrawingTransform transform = m_selectedShape->transform();
+    
+    // 只更新其他手柄的位置，不更新正在拖动的手柄（避免干扰拖动过程）
+    for (int i = 0; i < m_nodeHandles.size() && i < nodePoints.size(); ++i) {
+        // 跳过正在拖动的手柄，它的位置已由mouseMoveEvent设置
+        if (i == draggedIndex) {
+            continue;
+        }
+        
+        // 更新其他手柄的位置
+        if (m_nodeHandles[i]) {
+            QPointF point = nodePoints[i];
+            // 首先应用DrawingTransform变换
+            point = transform.transform().map(point);
+            // 然后使用Qt的内置方法将结果转换为场景坐标
+            point = m_selectedShape->mapToScene(point);
+            m_nodeHandles[i]->setPos(point);
+        }
+    }
+}
+
+void DrawingNodeEditTool::clearNodeHandles()
+{
+    if (!m_scene) return;
+    
+    // 从场景中移除所有节点手柄
+    for (int i = m_nodeHandles.size() - 1; i >= 0; --i) {
+        EditHandle *handle = m_nodeHandles[i];
+        if (handle) {
+            m_scene->removeItem(handle);
+            delete handle;
+        }
+    }
+    
+    m_nodeHandles.clear();
+    m_activeHandle = nullptr;
+}

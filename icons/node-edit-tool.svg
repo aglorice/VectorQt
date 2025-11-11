@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   width="24"
+   height="24"
+   viewBox="0 0 24 24"
+   version="1.1">
+  <defs>
+    <linearGradient id="editGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff9800;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f57c00;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background transparent square -->
+  <rect width="24" height="24" fill="none" />
+  
+  <!-- Simple pointer arrow first - positioned slightly lower -->
+  <g transform="translate(11, 12) rotate(-30)">
+    <!-- Arrow shaft -->
+    <rect x="0" y="0" width="2" height="8" fill="url(#editGradient)" />
+    <!-- Arrow head pointing up -->
+    <path d="M -1 0 L 1 -4 L 3 0 Z" fill="url(#editGradient)" />
+  </g>
+  
+  <!-- Bezier curve (drawn on top) -->
+  <path d="M 5 18 Q 8 6, 18 8" 
+        fill="none" 
+        stroke="#ff9800" 
+        stroke-width="2" 
+        stroke-linecap="round" />
+  
+  <!-- Control points -->
+  <circle cx="5" cy="18" r="2" fill="white" stroke="#ff9800" stroke-width="1.5" />
+  <circle cx="8" cy="6" r="2" fill="white" stroke="#ff9800" stroke-width="1.5" />
+  <circle cx="18" cy="8" r="2" fill="white" stroke="#ff9800" stroke-width="1.5" />
+  
+  <!-- Control handles -->
+  <line x1="5" y1="18" x2="8" y2="6" stroke="#ff9800" stroke-width="1" />
+  <line x1="8" y1="6" x2="18" y2="8" stroke="#ff9800" stroke-width="1" />
+</svg>

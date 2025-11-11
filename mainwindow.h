@@ -1,0 +1,160 @@
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
+
+#include <QMainWindow>
+#include <QGraphicsScene>
+#include <QGraphicsView>
+#include <QActionGroup>
+#include <QDockWidget>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QSpinBox>
+#include <QDoubleSpinBox>
+#include <QPushButton>
+#include <QComboBox>
+#include <QColorDialog>
+#include <QUndoStack>
+#include <QUndoView>
+
+class DrawingScene;
+class DrawingView;
+class DrawingCanvas;
+class ToolBase;
+class PropertyPanel;
+class Ruler;
+class ColorPalette;
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
+
+private slots:
+    void newFile();
+    void openFile();
+    void saveFile();
+    void saveFileAs();
+    void exportFile();
+    void undo();
+    void redo();
+    void selectTool();
+    void rectangleTool();
+    void ellipseTool();
+    void bezierTool();
+    
+    void nodeEditTool();
+    // void lineTool()      // Not implemented yet
+    // void polygonTool()    // Not implemented yet
+    // void textTool()  // Not implemented yet
+    void deleteSelected();
+    void selectAll();
+    void deselectAll();
+    void zoomIn();
+    void zoomOut();
+    void resetZoom();
+    void fitToWindow();
+    void toggleGrid();
+    void toggleGridAlignment();
+    void groupSelected();
+    void ungroupSelected();
+    void alignLeft();
+    void alignCenter();
+    void alignRight();
+    void alignTop();
+    void alignMiddle();
+    void alignBottom();
+    void showGridSettings();
+    void about();
+    void onSelectionChanged();
+    void onSceneChanged();
+    void updateZoomLabel();
+
+protected:
+    void mouseMoveEvent(QMouseEvent *event) override;
+
+private:
+    void setupUI();
+    void setupMenus();
+    void setupToolbars();
+    void setupDocks();
+    void setupStatusBar();
+    void setupColorPalette();
+    void createActions();
+    void connectActions();
+    void updateUI();
+    void setCurrentTool(ToolBase *tool);
+    
+    
+    DrawingScene *m_scene;
+    DrawingCanvas *m_canvas;
+    PropertyPanel *m_propertyPanel;
+    QUndoView *m_undoView;
+    ToolBase *m_currentTool;
+    ToolBase *m_selectTool;
+    ToolBase *m_rectangleTool;
+    ToolBase *m_ellipseTool;
+    ToolBase *m_bezierTool;        // 贝塞尔曲线工具
+    
+    ToolBase *m_nodeEditTool;      // 节点编辑工具
+    // ToolBase *m_polygonTool;     // Not implemented yet
+    
+    // Rulers
+    Ruler *m_horizontalRuler;
+    Ruler *m_verticalRuler;
+    QWidget *m_cornerWidget;
+    
+    QAction *m_newAction;
+    QAction *m_openAction;
+    QAction *m_saveAction;
+    QAction *m_saveAsAction;
+    QAction *m_exportAction;
+    QAction *m_exitAction;
+    QAction *m_undoAction;
+    QAction *m_redoAction;
+    QAction *m_selectToolAction;
+    QAction *m_rectangleToolAction;
+    QAction *m_ellipseToolAction;
+    QAction *m_bezierToolAction;
+    
+    QAction *m_nodeEditToolAction;
+    QAction *m_deleteAction;
+    QAction *m_selectAllAction;
+    QAction *m_deselectAllAction;
+    QAction *m_zoomInAction;
+    QAction *m_zoomOutAction;
+    QAction *m_resetZoomAction;
+    QAction *m_fitToWindowAction;
+    QAction *m_toggleGridAction;
+    QAction *m_gridSizeAction;
+    QAction *m_gridColorAction;
+    QAction *m_toggleGridAlignmentAction;
+    QAction *m_groupAction;
+    QAction *m_ungroupAction;
+    QAction *m_alignLeftAction;
+    QAction *m_alignCenterAction;
+    QAction *m_alignRightAction;
+    QAction *m_alignTopAction;
+    QAction *m_alignMiddleAction;
+    QAction *m_alignBottomAction;
+    QAction *m_aboutAction;
+    QActionGroup *m_toolGroup;
+    
+    // Color palette
+    ColorPalette *m_colorPalette;
+    
+    QLabel *m_statusLabel;
+    QLabel *m_zoomLabel;
+    QLabel *m_positionLabel;
+    QString m_currentFile;
+    bool m_isModified;
+};
+
+#endif // MAINWINDOW_H

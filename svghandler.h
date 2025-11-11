@@ -1,0 +1,151 @@
+#ifndef SVGHANDLER_H
+#define SVGHANDLER_H
+
+#include <QPainterPath>
+#include <QGraphicsItem>
+#include <QColor>
+#include <QPen>
+#include <QBrush>
+#include <QGradient>
+#include <QLinearGradient>
+#include <QRadialGradient>
+#include <QDomDocument>
+#include <QDomElement>
+#include <QString>
+#include <QGraphicsBlurEffect>
+#include <QGraphicsDropShadowEffect>
+
+class DrawingScene;
+class DrawingShape;
+class DrawingPath;
+class DrawingRectangle;
+class DrawingEllipse;
+class DrawingText;
+class DrawingLayer;
+class DrawingGroup;
+
+/**
+ * SVG处理类 - 负责导入和导出SVG文件
+ */
+class SvgHandler
+{
+public:
+    // 从SVG文件导入
+    static bool importFromSvg(DrawingScene *scene, const QString &fileName);
+    
+    // 导出到SVG文件
+    static bool exportToSvg(DrawingScene *scene, const QString &fileName);
+    
+    // 从QPainterPath创建DrawingPath对象
+    static DrawingPath* createPathFromPainterPath(const QPainterPath &path, const QString &elementId = QString());
+
+private:
+    // 解析SVG文档
+    static bool parseSvgDocument(DrawingScene *scene, const QDomDocument &doc);
+    
+    // 解析SVG元素
+    static DrawingShape* parseSvgElement(const QDomElement &element);
+    
+    // 解析路径元素
+    static DrawingPath* parsePathElement(const QDomElement &element);
+    
+    // 解析 Inkscape sodipodi:arc 元素
+    static DrawingEllipse* parseSodipodiArcElement(const QDomElement &element);
+    
+    // 解析矩形元素
+    static DrawingRectangle* parseRectElement(const QDomElement &element);
+    
+    // 解析椭圆元素
+    static DrawingEllipse* parseEllipseElement(const QDomElement &element);
+    
+    // 解析圆元素
+    static DrawingEllipse* parseCircleElement(const QDomElement &element);
+    
+    // 解析线元素
+    static DrawingPath* parseLineElement(const QDomElement &element);
+    
+    // 解析多边形元素
+    static DrawingPath* parsePolygonElement(const QDomElement &element);
+    
+    // 解析文本元素
+    static DrawingText* parseTextElement(const QDomElement &element);
+    
+    // 解析组元素（现在支持图层）
+    static void parseGroupElement(DrawingScene *scene, const QDomElement &groupElement, QGraphicsItem *parentItem = nullptr);
+    static DrawingLayer* parseLayerElement(const QDomElement &element);
+    
+    // 解析多线元素
+    static DrawingPath* parsePolylineElement(const QDomElement &element);
+    
+    // 解析样式属性
+    static void parseStyleAttributes(DrawingShape *shape, const QDomElement &element);
+    static void parseStyleAttributes(DrawingGroup *group, const QDomElement &element);
+    
+    // 解析变换属性
+    static void parseTransformAttribute(DrawingShape *shape, const QString &transformStr);
+    static void parseTransformAttribute(DrawingGroup *group, const QString &transformStr);
+    
+    // 解析颜色字符串
+    static QColor parseColor(const QString &colorStr);
+    
+    // 解析defs元素中的渐变定义
+    static void parseDefsElements(const QDomElement &root);
+    
+    // 解析线性渐变
+    static QLinearGradient parseLinearGradient(const QDomElement &element);
+    
+    // 解析径向渐变
+    static QRadialGradient parseRadialGradient(const QDomElement &element);
+    
+    // 解析渐变停止点
+    static void parseGradientStops(QGradient *gradient, const QDomElement &element);
+    
+    // 解析滤镜效果
+    static void parseFilterElements(const QDomElement &root);
+    static QGraphicsBlurEffect* parseGaussianBlurFilter(const QDomElement &element);
+    static QGraphicsDropShadowEffect* parseDropShadowFilter(const QDomElement &element);
+    static void applyFilterToShape(DrawingShape *shape, const QString &filterId);
+    static void applyFilterToShape(DrawingGroup *group, const QString &filterId);
+    
+    // 解析Pattern
+    static void parsePatternElements(const QDomElement &root);
+    static QBrush parsePatternBrush(const QString &patternId);
+    
+    // 解析Marker
+    static void parseMarkerElements(const QDomElement &root);
+    static void applyMarkerToPath(DrawingPath *path, const QString &markerId);
+    
+    // 从字符串解析长度值
+    static qreal parseLength(const QString &lengthStr);
+    
+    // 导出场景到SVG文档
+    static QDomDocument exportSceneToSvgDocument(DrawingScene *scene);
+    
+    // 导出形状到SVG元素
+    static QDomElement exportShapeToSvgElement(QDomDocument &doc, DrawingShape *shape);
+    
+    // 导出路径到SVG路径元素
+    static QDomElement exportPathToSvgElement(QDomDocument &doc, DrawingPath *path);
+    
+    // 导出矩形到SVG矩形元素
+    static QDomElement exportRectangleToSvgElement(QDomDocument &doc, DrawingRectangle *rect);
+    
+    // 导出椭圆到SVG椭圆元素
+    static QDomElement exportEllipseToSvgElement(QDomDocument &doc, DrawingEllipse *ellipse);
+    
+    // 导出文本到SVG文本元素
+    static QDomElement exportTextToSvgElement(QDomDocument &doc, DrawingText *text);
+    
+    // 辅助函数
+    static void parseSvgPathData(const QString &data, QPainterPath &path);
+    static QString pathDataToString(const QPainterPath &path);
+    static void parseGroupElement(const QDomElement &groupElement);
+    
+    // 导出辅助函数
+    static QDomElement exportLayerToSvgElement(QDomDocument &doc, DrawingLayer *layer);
+    static void exportGradientsToSvg(QDomDocument &doc, QDomElement &defsElement, const QList<QGraphicsItem*> &items);
+    static void exportFiltersToSvg(QDomDocument &doc, QDomElement &defsElement, const QList<QGraphicsItem*> &items);
+    static QString transformToString(const QTransform &transform);
+};
+
+#endif // SVGHANDLER_H

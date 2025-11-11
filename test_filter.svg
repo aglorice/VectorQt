@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+    <!-- 高斯模糊滤镜 -->
+    <filter id="blur1">
+      <feGaussianBlur stdDeviation="2" />
+    </filter>
+    
+    <!-- 强高斯模糊滤镜 -->
+    <filter id="blur2">
+      <feGaussianBlur stdDeviation="5" />
+    </filter>
+    
+    <!-- 轻微模糊滤镜 -->
+    <filter id="blur3">
+      <feGaussianBlur stdDeviation="1" />
+    </filter>
+  </defs>
+  
+  <!-- 应用不同模糊效果的矩形 -->
+  <rect x="20" y="20" width="100" height="80" fill="red" filter="url(#blur1)" />
+  <rect x="150" y="20" width="100" height="80" fill="green" filter="url(#blur2)" />
+  <rect x="280" y="20" width="100" height="80" fill="blue" filter="url(#blur3)" />
+  
+  <!-- 带模糊效果的圆形 -->
+  <circle cx="70" cy="180" r="40" fill="orange" filter="url(#blur1)" />
+  <circle cx="200" cy="180" r="40" fill="purple" filter="url(#blur2)" />
+  <circle cx="330" cy="180" r="40" fill="cyan" filter="url(#blur3)" />
+  
+  <!-- 带模糊效果的文本 -->
+  <text x="200" y="280" font-family="Arial" font-size="24" text-anchor="middle" fill="black" filter="url(#blur1)">滤镜效果测试</text>
+</svg>

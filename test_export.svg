@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="820" height="620" viewBox="-10,-10 820,620">
+  <defs>
+    <linearGradient id="grad_0" x1="0" y1="0" x2="100" y2="100">
+      <stop offset="0" stop-color="#ffff00" stop-opacity="1"/>
+      <stop offset="1" stop-color="#ff0000" stop-opacity="1"/>
+    </linearGradient>
+    <radialGradient id="radial_0" cx="50" cy="50" r="50" fx="50" fy="50">
+      <stop offset="0" stop-color="#00ff00" stop-opacity="1"/>
+      <stop offset="1" stop-color="#0000ff" stop-opacity="1"/>
+    </radialGradient>
+    <filter id="blur_0" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <filter id="shadow_0" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#000000"/>
+    </filter>
+  </defs>
+  
+  <g id="shapes" opacity="0.8">
+    <rect x="50" y="50" width="200" height="100" rx="10" ry="10" fill="url(#grad_0)" stroke="#000000" stroke-width="2"/>
+    <ellipse cx="400" cy="100" rx="80" ry="60" fill="url(#radial_0)" stroke="#000000" stroke-width="2"/>
+    <path d="M 100,300 Q 200,200 300,300 T 500,300" fill="none" stroke="#00ff00" stroke-width="3" stroke-dasharray="5,5" filter="url(#blur_0)"/>
+    <text x="100" y="450" font-family="Arial" font-size="24" font-weight="bold" fill="#0000ff">测试文本</text>
+  </g>
+  
+  <rect x="600" y="50" width="100" height="100" fill="#ff00ff" stroke="#000000" stroke-width="2" filter="url(#shadow_0)"/>
+</svg>
