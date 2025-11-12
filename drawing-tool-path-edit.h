@@ -44,6 +44,8 @@ private:
     // 执行路径操作
     void executePathOperation();
     void showContextMenu(const QPointF &scenePos);
+    void showTemporaryMessage(const QString &message, const QPointF &pos);
+    void hideTemporaryMessage();
     
     EditMode m_editMode;
     PathEditor::BooleanOperation m_booleanOp;

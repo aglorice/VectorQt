@@ -4,9 +4,11 @@
 #include "drawing-shape.h"
 #include "patheditor.h"
 #include <QGraphicsScene>
+#include <QGraphicsTextItem>
 #include <QMouseEvent>
 #include <QMenu>
 #include <QAction>
+#include <QTimer>
 #include <QDebug>
 
 DrawingToolPathEdit::DrawingToolPathEdit(QObject *parent)
@@ -20,19 +22,7 @@ DrawingToolPathEdit::DrawingToolPathEdit(QObject *parent)
 
 DrawingToolPathEdit::~DrawingToolPathEdit()
 {
-    // 清理选择的形状列表 - 只设置选择状态，不删除对象
-    // 因为这些对象可能已经被其他操作删除了
-    for (DrawingShape *shape : m_selectedPaths) {
-        if (shape) {
-            // 检查对象是否仍然有效，通过检查它是否还在某个场景中
-            if (shape->scene()) {
-                shape->setSelected(false);
-            }
-        }
-    }
-    m_selectedPaths.clear();
-    
-    // 清理路径编辑器
+    hideTemporaryMessage();
     if (m_pathEditor) {
         delete m_pathEditor;
         m_pathEditor = nullptr;
@@ -82,12 +72,17 @@ bool DrawingToolPathEdit::mousePressEvent(QMouseEvent *event, const QPointF &sce
             if (clickedShape) {
                 qDebug() << "Clicked on shape, current selection count:" << m_selectedPaths.size();
                 
-                if (event->modifiers() & Qt::ControlModifier) {
-                    // Ctrl+点击：添加到选择
+                if (event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier)) {
+                    // Ctrl+点击或Shift+点击：添加到选择（多选模式）
                     if (!m_selectedPaths.contains(clickedShape)) {
                         m_selectedPaths.append(clickedShape);
                         clickedShape->setSelected(true);
                         qDebug() << "Shape added to selection, new count:" << m_selectedPaths.size();
+                    } else {
+                        // 如果已选中，则从选择中移除
+                        m_selectedPaths.removeOne(clickedShape);
+                        clickedShape->setSelected(false);
+                        qDebug() << "Shape removed from selection, new count:" << m_selectedPaths.size();
                     }
                 } else {
                     // 普通点击：替换选择
@@ -160,7 +155,12 @@ void DrawingToolPathEdit::executePathOperation()
     qDebug() << "executePathOperation called, selectedPaths count:" << m_selectedPaths.size();
     
     if (m_selectedPaths.size() < 2) {
-        qDebug() << "需要至少选择两个路径进行布尔运算";
+        // 显示用户友好的提示
+        if (m_scene && m_selectedPaths.size() == 1) {
+            // 在场景中显示一个临时提示信息
+            showTemporaryMessage("按住Ctrl或Shift键点击可多选路径\n需要至少选择两个路径进行布尔运算", 
+                                m_selectedPaths.first()->mapToScene(m_selectedPaths.first()->boundingRect().center()));
+        }
         return;
     }
     
@@ -567,6 +567,35 @@ void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
         m_scene->addItem(newPath);
         m_scene->setModified(true);
     }
+}
+
+void DrawingToolPathEdit::showTemporaryMessage(const QString &message, const QPointF &pos)
+{
+    hideTemporaryMessage(); // 先隐藏之前的消息
+    
+    if (!m_scene) return;
+    
+    // 创建一个临时的文本项
+    QGraphicsTextItem *textItem = new QGraphicsTextItem(message);
+    textItem->setDefaultTextColor(QColor(255, 0, 0)); // 红色文字
+    textItem->setFont(QFont("Arial", 12));
+    textItem->setPos(pos.x() + 20, pos.y() - 30); // 稍微偏移位置
+    
+    m_scene->addItem(textItem);
+    
+    // 使用QTimer在3秒后自动删除
+    QTimer::singleShot(3000, [textItem]() {
+        if (textItem->scene()) {
+            textItem->scene()->removeItem(textItem);
+        }
+        delete textItem;
+    });
+}
+
+void DrawingToolPathEdit::hideTemporaryMessage()
+{
+    // 这个方法可以用于立即隐藏当前显示的消息
+    // 由于我们使用了QTimer自动删除，这里暂时不需要额外处理
 }
 
 #include "drawing-tool-path-edit.moc"

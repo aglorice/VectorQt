@@ -87,7 +87,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 不设置默认工具，让用户手动选择
 
     resize(1200, 800);
-    setWindowTitle("QDrawPro - 矢量绘图应用");
+    setWindowTitle("VectorFlow - 专业矢量绘图工具");
 }
 
 MainWindow::~MainWindow()

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(QDrawPro)
+project(VectorFlow)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,7 +23,7 @@ set(SOURCES
     drawing-tool.cpp
     control-frame.cpp
     drawing-canvas.cpp
-    qdrawpro.cpp
+    vectorflow.cpp
     # 新增的改进绘图系统
     drawing-shape.cpp
     drawing-transform.cpp
@@ -63,7 +63,7 @@ set(HEADERS
     drawing-tool.h
     control-frame.h
     drawing-canvas.h
-    qdrawpro.h
+    vectorflow.h
     graphics-adapter.h
     # 新增的改进绘图系统
     drawing-shape.h
@@ -97,33 +97,33 @@ set(RESOURCES
 )
 
 # 生成可执行文件
-add_executable(QDrawPro ${SOURCES} ${HEADERS} ${RESOURCES})
+add_executable(VectorFlow ${SOURCES} ${HEADERS} ${RESOURCES})
 
 # 链接Qt6库
-target_link_libraries(QDrawPro
+target_link_libraries(VectorFlow
     Qt6::Widgets
     Qt6::SvgWidgets
     Qt6::Xml
 )
 
 # 启用Qt元对象系统
-set_target_properties(QDrawPro PROPERTIES
+set_target_properties(VectorFlow PROPERTIES
     AUTOMOC ON
     AUTORCC ON
     AUTOUIC ON
 )
 
 # 设置包含目录
-target_include_directories(QDrawPro PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(VectorFlow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # 编译器特定设置
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(QDrawPro PRIVATE -Wall -Wextra)
+    target_compile_options(VectorFlow PRIVATE -Wall -Wextra)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(QDrawPro PRIVATE /W4)
+    target_compile_options(VectorFlow PRIVATE /W4)
 endif()
 
 # 调试信息
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_definitions(QDrawPro PRIVATE DEBUG)
+    target_compile_definitions(VectorFlow PRIVATE DEBUG)
 endif()
