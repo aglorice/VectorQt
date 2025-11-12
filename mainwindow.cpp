@@ -142,6 +142,11 @@ void MainWindow::setupUI()
     m_scene = new DrawingScene(this);
     m_scene->setSceneRect(0, 0, 1000, 800);
     m_scene->setGridVisible(true); // 确保网格初始可见
+    m_scene->setGridAlignmentEnabled(true); // 默认启用网格对齐
+    m_scene->setSnapEnabled(true); // 启用智能吸附
+    m_scene->setObjectSnapEnabled(true); // 启用对象吸附
+    m_scene->setSnapTolerance(10); // 设置吸附容差
+    m_scene->setObjectSnapTolerance(10); // 设置对象吸附容差
 
     // Create rulers
     m_horizontalRuler = new Ruler(Ruler::Horizontal, this);
@@ -352,6 +357,7 @@ void MainWindow::setupMenus()
     editMenu->addSeparator();
     editMenu->addAction(m_copyAction);
     editMenu->addAction(m_pasteAction);
+    editMenu->addAction(m_duplicateAction);
     editMenu->addSeparator();
     editMenu->addAction(m_selectAllAction);
     editMenu->addAction(m_deselectAllAction);
@@ -601,6 +607,10 @@ void MainWindow::createActions()
     m_pasteAction->setShortcut(QKeySequence::Paste);
     m_pasteAction->setStatusTip("粘贴项目");
 
+    m_duplicateAction = new QAction("&快速复制", this);
+    m_duplicateAction->setShortcut(QKeySequence("Ctrl+D"));
+    m_duplicateAction->setStatusTip("快速复制并粘贴选中项目");
+
     m_selectAllAction = new QAction("全选(&A)", this);
     m_selectAllAction->setShortcut(QKeySequence::SelectAll);
     m_selectAllAction->setStatusTip("选择所有项目");
@@ -643,7 +653,7 @@ void MainWindow::createActions()
     m_toggleGridAlignmentAction->setCheckable(true);
     m_toggleGridAlignmentAction->setShortcut(QKeySequence("Shift+G"));
     m_toggleGridAlignmentAction->setStatusTip("启用或禁用网格对齐");
-    m_toggleGridAlignmentAction->setChecked(false); // 默认关闭网格对齐
+    m_toggleGridAlignmentAction->setChecked(true); // 默认启用网格对齐
     
     m_groupAction = new QAction("组合(&G)", this);
     m_groupAction->setShortcut(QKeySequence("Ctrl+G"));
@@ -781,6 +791,7 @@ void MainWindow::connectActions()
     connect(m_deleteAction, &QAction::triggered, this, &MainWindow::deleteSelected);
     connect(m_copyAction, &QAction::triggered, this, &MainWindow::copySelected);
     connect(m_pasteAction, &QAction::triggered, this, &MainWindow::paste);
+    connect(m_duplicateAction, &QAction::triggered, this, &MainWindow::duplicate);
     connect(m_selectAllAction, &QAction::triggered, this, &MainWindow::selectAll);
     connect(m_deselectAllAction, &QAction::triggered, this, &MainWindow::deselectAll);
 
@@ -1107,13 +1118,83 @@ void MainWindow::copySelected()
     // 创建MIME数据来存储复制的项目
     QMimeData *mimeData = new QMimeData();
     
-    // 这里简化实现，实际应该序列化图形数据
-    // 暂时只复制数量信息用于测试
-    QString copyData = QString("copied_items:%1").arg(selected.size());
-    mimeData->setText(copyData);
+    // 使用JSON格式存储数据，更简单可靠
+    QString jsonData = "[";
     
-    // 放到剪贴板
-    QApplication::clipboard()->setMimeData(mimeData);
+    bool first = true;
+    for (QGraphicsItem *item : selected) {
+        DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+        if (shape) {
+            if (!first) {
+                jsonData += ",";
+            }
+            first = false;
+            
+            jsonData += "{";
+            jsonData += QString("\"type\":%1,").arg((int)shape->shapeType());
+            jsonData += QString("\"x\":%1,").arg(shape->pos().x());
+            jsonData += QString("\"y\":%1,").arg(shape->pos().y());
+            
+            // 写入样式数据
+            QPen pen = shape->strokePen();
+            QBrush brush = shape->fillBrush();
+            jsonData += QString("\"stroke\":{\"color\":\"%1\",\"width\":%2,\"style\":%3},")
+                        .arg(pen.color().name())
+                        .arg(pen.width())
+                        .arg((int)pen.style());
+            jsonData += QString("\"fill\":{\"color\":\"%1\",\"style\":%2},")
+                        .arg(brush.color().name())
+                        .arg((int)brush.style());
+            
+            // 写入几何数据
+            switch (shape->shapeType()) {
+                case DrawingShape::Rectangle: {
+                    DrawingRectangle *rect = static_cast<DrawingRectangle*>(shape);
+                    jsonData += QString(",\"rect\":{\"x\":%1,\"y\":%2,\"w\":%3,\"h\":%4}")
+                                .arg(rect->rectangle().x())
+                                .arg(rect->rectangle().y())
+                                .arg(rect->rectangle().width())
+                                .arg(rect->rectangle().height());
+                    break;
+                }
+                case DrawingShape::Ellipse: {
+                    DrawingEllipse *ellipse = static_cast<DrawingEllipse*>(shape);
+                    jsonData += QString(",\"ellipse\":{\"x\":%1,\"y\":%2,\"w\":%3,\"h\":%4}")
+                                .arg(ellipse->ellipse().x())
+                                .arg(ellipse->ellipse().y())
+                                .arg(ellipse->ellipse().width())
+                                .arg(ellipse->ellipse().height());
+                    break;
+                }
+                case DrawingShape::Line: {
+                    DrawingLine *line = static_cast<DrawingLine*>(shape);
+                    jsonData += QString(",\"line\":{\"x1\":%1,\"y1\":%2,\"x2\":%3,\"y2\":%4}")
+                                .arg(line->line().x1())
+                                .arg(line->line().y1())
+                                .arg(line->line().x2())
+                                .arg(line->line().y2());
+                    break;
+                }
+                default:
+                    // 跳过未知类型
+                    break;
+            }
+            
+            jsonData += "}";
+        }
+    }
+    
+    jsonData += "]";
+    
+    mimeData->setData("application/qdrawpro/shapes", jsonData.toUtf8());
+    
+    // 放到剪贴板 - 剪贴板会接管mimeData的所有权
+    QClipboard *clipboard = QApplication::clipboard();
+    if (clipboard) {
+        clipboard->setMimeData(mimeData);
+    } else {
+        delete mimeData; // 如果剪贴板不可用，手动删除
+    }
     
     m_statusLabel->setText(QString("已复制 %1 个项目").arg(selected.size()));
 }
@@ -1123,36 +1204,225 @@ void MainWindow::paste()
     if (!m_scene)
         return;
 
-    const QMimeData *mimeData = QApplication::clipboard()->mimeData();
-    if (!mimeData || !mimeData->hasText())
+    // 检查剪贴板是否可用
+    QClipboard *clipboard = QApplication::clipboard();
+    if (!clipboard) {
         return;
-
-    QString pasteData = mimeData->text();
-    if (!pasteData.startsWith("copied_items:"))
+    }
+    
+    const QMimeData *mimeData = clipboard->mimeData();
+    if (!mimeData) {
         return;
+    }
+    
+    if (!mimeData->hasFormat("application/qdrawpro/shapes")) {
+        return;
+    }
 
-    // 简化实现：创建一些测试图形
-    bool ok;
-    int itemCount = pasteData.mid(13).toInt(&ok);
-    if (!ok || itemCount <= 0)
+    QByteArray copyData = mimeData->data("application/qdrawpro/shapes");
+    QString jsonData = QString::fromUtf8(copyData);
+    
+    // 简单的JSON解析（基础实现）
+    // 移除外层方括号
+    if (jsonData.startsWith("[") && jsonData.endsWith("]")) {
+        jsonData = jsonData.mid(1, jsonData.length() - 2);
+    }
+    
+    // 分割对象（简单实现，不处理嵌套）
+    QStringList objectStrings;
+    int braceLevel = 0;
+    int start = 0;
+    
+    for (int i = 0; i < jsonData.length(); ++i) {
+        if (jsonData[i] == '{') {
+            if (braceLevel == 0) {
+                start = i;
+            }
+            braceLevel++;
+        } else if (jsonData[i] == '}') {
+            braceLevel--;
+            if (braceLevel == 0) {
+                objectStrings.append(jsonData.mid(start, i - start + 1));
+            }
+        }
+    }
+    
+    if (objectStrings.isEmpty())
         return;
 
     // 清除当前选择
     m_scene->clearSelection();
     
-    // 创建复制的项目（简化版本）
-    for (int i = 0; i < itemCount; ++i) {
-        // 创建一个简单的矩形作为复制示例
-        DrawingRectangle *rect = new DrawingRectangle();
-        rect->setRectangle(QRectF(100 + i * 30, 100 + i * 30, 80, 60));
-        rect->setFillBrush(QColor(100 + i * 30, 150, 200));
-        rect->setStrokePen(QPen(Qt::black, 2));
-        m_scene->addItem(rect);
-        rect->setSelected(true);
+    // 偏移量，避免完全重叠
+    QPointF offset(20, 20);
+    
+    // 解析并创建图形
+    for (const QString &objStr : objectStrings) {
+        // 简单的键值对解析
+        QMap<QString, QString> props;
+        QString cleanObj = objStr.mid(1, objStr.length() - 2); // 移除 {}
+        
+        // 更智能的解析，处理嵌套对象
+        int braceLevel = 0;
+        int start = 0;
+        
+        for (int i = 0; i < cleanObj.length(); ++i) {
+            if (cleanObj[i] == '{') {
+                braceLevel++;
+            } else if (cleanObj[i] == '}') {
+                braceLevel--;
+            } else if (cleanObj[i] == ',' && braceLevel == 0) {
+                // 找到顶级分隔符
+                QString pair = cleanObj.mid(start, i - start).trimmed();
+                int colonPos = pair.indexOf(':');
+                if (colonPos > 0) {
+                    QString key = pair.left(colonPos).trimmed().replace("\"", "");
+                    QString value = pair.mid(colonPos + 1).trimmed();
+                    props[key] = value;
+                }
+                start = i + 1;
+            }
+        }
+        
+        // 处理最后一个键值对
+        if (start < cleanObj.length()) {
+            QString pair = cleanObj.mid(start).trimmed();
+            int colonPos = pair.indexOf(':');
+            if (colonPos > 0) {
+                QString key = pair.left(colonPos).trimmed().replace("\"", "");
+                QString value = pair.mid(colonPos + 1).trimmed();
+                props[key] = value;
+            }
+        }
+
+        
+        bool ok;
+        int shapeType = props["type"].toInt(&ok);
+        if (!ok) continue;
+        
+        double x = props["x"].toDouble();
+        double y = props["y"].toDouble();
+        QPointF pos(x, y);
+        
+        
+        
+        DrawingShape *shape = nullptr;
+        
+        switch ((DrawingShape::ShapeType)shapeType) {
+            case DrawingShape::Rectangle: {
+                // 解析rect对象
+                QString rectStr = props["rect"];
+                rectStr = rectStr.mid(1, rectStr.length() - 2); // 移除 {}
+                QStringList rectPairs = rectStr.split(',');
+                
+                if (rectPairs.size() >= 4) {
+                    double rx = rectPairs[0].split(':')[1].toDouble();
+                    double ry = rectPairs[1].split(':')[1].toDouble();
+                    double rw = rectPairs[2].split(':')[1].toDouble();
+                    double rh = rectPairs[3].split(':')[1].toDouble();
+                    
+                    DrawingRectangle *rectangle = new DrawingRectangle(nullptr);
+                    rectangle->setRectangle(QRectF(rx, ry, rw, rh));
+                    rectangle->setPos(pos + offset);
+                    shape = rectangle;
+                    
+                }
+                break;
+            }
+            case DrawingShape::Ellipse: {
+                // 解析ellipse对象
+                QString ellipseStr = props["ellipse"];
+                ellipseStr = ellipseStr.mid(1, ellipseStr.length() - 2); // 移除 {}
+                QStringList ellipsePairs = ellipseStr.split(',');
+                
+                if (ellipsePairs.size() >= 4) {
+                    double ex = ellipsePairs[0].split(':')[1].toDouble();
+                    double ey = ellipsePairs[1].split(':')[1].toDouble();
+                    double ew = ellipsePairs[2].split(':')[1].toDouble();
+                    double eh = ellipsePairs[3].split(':')[1].toDouble();
+                    
+                    DrawingEllipse *ellipseShape = new DrawingEllipse(nullptr);
+                    ellipseShape->setEllipse(QRectF(ex, ey, ew, eh));
+                    ellipseShape->setPos(pos + offset);
+                    shape = ellipseShape;
+                    
+                }
+                break;
+            }
+            case DrawingShape::Line: {
+                // 解析line对象
+                QString lineStr = props["line"];
+                lineStr = lineStr.mid(1, lineStr.length() - 2); // 移除 {}
+                QStringList linePairs = lineStr.split(',');
+                
+                if (linePairs.size() >= 4) {
+                    double x1 = linePairs[0].split(':')[1].toDouble();
+                    double y1 = linePairs[1].split(':')[1].toDouble();
+                    double x2 = linePairs[2].split(':')[1].toDouble();
+                    double y2 = linePairs[3].split(':')[1].toDouble();
+                    
+                    DrawingLine *lineShape = new DrawingLine(QLineF(x1, y1, x2, y2), nullptr);
+                    lineShape->setPos(pos + offset);
+                    shape = lineShape;
+                    
+                }
+                break;
+            }
+            default:
+                continue;
+        }
+        
+        if (shape) {
+            // 应用样式
+            QString strokeStr = props["stroke"];
+            QString fillStr = props["fill"];
+            
+            // 解析stroke样式
+            if (!strokeStr.isEmpty()) {
+                QString cleanStroke = strokeStr.mid(1, strokeStr.length() - 2); // 移除 {}
+                QStringList strokePairs = cleanStroke.split(',');
+                
+                if (strokePairs.size() >= 3) {
+                    QString colorStr = strokePairs[0].split(':')[1].replace("\"", "");
+                    double width = strokePairs[1].split(':')[1].toDouble();
+                    int style = strokePairs[2].split(':')[1].toInt();
+                    
+                    QPen pen((QColor(colorStr)));
+                    pen.setWidth(width);
+                    pen.setStyle((Qt::PenStyle)style);
+                    shape->setStrokePen(pen);
+                }
+            }
+            
+            // 解析fill样式
+            if (!fillStr.isEmpty()) {
+                QString cleanFill = fillStr.mid(1, fillStr.length() - 2); // 移除 {}
+                QStringList fillPairs = cleanFill.split(',');
+                
+                if (fillPairs.size() >= 2) {
+                    QString colorStr = fillPairs[0].split(':')[1].replace("\"", "");
+                    int style = fillPairs[1].split(':')[1].toInt();
+                    
+                    QBrush brush((QColor(colorStr)));
+                    brush.setStyle((Qt::BrushStyle)style);
+                    shape->setFillBrush(brush);
+                }
+            }
+            
+            m_scene->addItem(shape);
+            shape->setSelected(true);
+        }
     }
     
     m_scene->setModified(true);
-    m_statusLabel->setText(QString("已粘贴 %1 个项目").arg(itemCount));
+    m_statusLabel->setText(QString("已粘贴 %1 个项目").arg(objectStrings.size()));
+}
+
+void MainWindow::duplicate()
+{
+    // 快速复制粘贴：先复制，然后立即粘贴
+    copySelected();
+    paste();
 }
 
 void MainWindow::selectAll()
@@ -1576,6 +1846,12 @@ void MainWindow::closeEvent(QCloseEvent *event)
             event->ignore();
             return;
         }
+    }
+
+    // 清理剪贴板，避免在应用程序关闭后访问已释放的内存
+    QClipboard *clipboard = QApplication::clipboard();
+    if (clipboard) {
+        clipboard->clear();
     }
 
     event->accept();

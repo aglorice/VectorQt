@@ -40,7 +40,7 @@ public:
     
     // 网格对齐功能
     QPointF alignToGrid(const QPointF &pos) const;
-    QPointF alignToGrid(const QPointF &pos, DrawingShape *excludeShape) const;
+    QPointF alignToGrid(const QPointF &pos, DrawingShape *excludeShape, bool *isObjectSnap = nullptr);
     QRectF alignToGrid(const QRectF &rect) const;
     
     // 🌟 智能吸附功能 - 只在接近网格线一定距离时才吸附
@@ -137,6 +137,9 @@ public:
     void setSnapIndicatorsVisible(bool visible);
     bool areSnapIndicatorsVisible() const;
 
+private:
+    void drawSnapIndicators(QPainter *painter);
+
 signals:
     void sceneModified(bool modified);
 
@@ -147,6 +150,7 @@ protected:
     
     void keyPressEvent(QKeyEvent *event) override;
     void drawBackground(QPainter *painter, const QRectF &rect) override;
+    void drawForeground(QPainter *painter, const QRectF &rect) override;
 
 private slots:
     void onSelectionChanged();
@@ -170,9 +174,12 @@ private:
     bool m_objectSnapEnabled;
     int m_objectSnapTolerance;
     bool m_snapIndicatorsVisible;
+    ObjectSnapResult m_lastSnapResult; // 最后一次吸附结果，用于绘制指示器
+    bool m_hasActiveSnap; // 是否有活跃的吸附（真正发生了位置变化）
     
     // 🌟 参考线系统
     bool m_guidesEnabled;
+    bool m_guideSnapEnabled;
     QList<Guide> m_guides;
 };
 

@@ -120,6 +120,51 @@ LegacyRectangleTool::LegacyRectangleTool(QObject *parent)
 {
 }
 
+void LegacyRectangleTool::activate(DrawingScene *scene, DrawingView *view)
+{
+    ToolBase::activate(scene, view);
+    // 初始化状态
+    m_drawing = false;
+    m_currentItem = nullptr;
+    m_previewItem = nullptr;
+}
+
+void LegacyRectangleTool::deactivate()
+{
+    // 完成当前正在绘制的矩形
+    if (m_drawing && m_currentItem) {
+        m_drawing = false;
+        // 检查是否太小，如果是则删除
+        QRectF currentRect = m_currentItem->rectangle();
+        if (currentRect.width() <= 5 && currentRect.height() <= 5) {
+            // 太小了，删除
+            if (m_scene) {
+                m_scene->removeItem(m_currentItem);
+            }
+            delete m_currentItem;
+            m_currentItem = nullptr;  // 重要：立即设置为nullptr
+        } else {
+            // 保留图形，设置场景已修改
+            if (m_scene) {
+                m_scene->setModified(true);
+            }
+            // 不删除，所有权转移给场景
+            m_currentItem = nullptr;  // 重要：立即设置为nullptr
+        }
+    }
+    
+    // 清理预览项
+    if (m_previewItem) {
+        if (m_scene) {
+            m_scene->removeItem(m_previewItem);
+        }
+        delete m_previewItem;
+        m_previewItem = nullptr;
+    }
+    
+    ToolBase::deactivate();
+}
+
 LegacyRectangleTool::~LegacyRectangleTool()
 {
     // 清理内存，防止内存泄漏
@@ -131,6 +176,8 @@ LegacyRectangleTool::~LegacyRectangleTool()
         delete m_previewItem;
         m_previewItem = nullptr;
     }
+    // m_currentItem应该在deactivate中已经被处理
+    // 但为了安全起见，再次检查
     if (m_currentItem) {
         // 检查对象是否仍然有效，通过检查它是否还在场景中
         if (m_scene && m_scene->items().contains(m_currentItem)) {
@@ -176,14 +223,9 @@ bool LegacyRectangleTool::mousePressEvent(QMouseEvent *event, const QPointF &sce
 bool LegacyRectangleTool::mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos)
 {
     if (m_drawing && m_currentItem && m_scene) {
-        // 应用网格对齐
-        QPointF alignedPos = scenePos;
-        if (qobject_cast<DrawingScene*>(m_scene)) {
-            DrawingScene *drawingScene = qobject_cast<DrawingScene*>(m_scene);
-            if (drawingScene->isGridAlignmentEnabled()) {
-                alignedPos = drawingScene->alignToGrid(scenePos);
-            }
-        }
+        // 计算对齐后的位置
+        // 在创建新对象时，不排除任何对象，以便可以吸附到已有对象
+        QPointF alignedPos = smartSnap(scenePos, nullptr);
         
         // 计算新的矩形大小，基于起始点和当前位置
         QPointF delta = alignedPos - m_startPos;
@@ -252,6 +294,51 @@ LegacyEllipseTool::LegacyEllipseTool(QObject *parent)
 {
 }
 
+void LegacyEllipseTool::activate(DrawingScene *scene, DrawingView *view)
+{
+    ToolBase::activate(scene, view);
+    // 初始化状态
+    m_drawing = false;
+    m_currentItem = nullptr;
+    m_previewItem = nullptr;
+}
+
+void LegacyEllipseTool::deactivate()
+{
+    // 完成当前正在绘制的椭圆
+    if (m_drawing && m_currentItem) {
+        m_drawing = false;
+        // 检查是否太小，如果是则删除
+        QRectF currentRect = m_currentItem->ellipse();
+        if (currentRect.width() <= 5 && currentRect.height() <= 5) {
+            // 太小了，删除
+            if (m_scene) {
+                m_scene->removeItem(m_currentItem);
+            }
+            delete m_currentItem;
+            m_currentItem = nullptr;  // 重要：立即设置为nullptr
+        } else {
+            // 保留图形，设置场景已修改
+            if (m_scene) {
+                m_scene->setModified(true);
+            }
+            // 不删除，所有权转移给场景
+            m_currentItem = nullptr;  // 重要：立即设置为nullptr
+        }
+    }
+    
+    // 清理预览项
+    if (m_previewItem) {
+        if (m_scene) {
+            m_scene->removeItem(m_previewItem);
+        }
+        delete m_previewItem;
+        m_previewItem = nullptr;
+    }
+    
+    ToolBase::deactivate();
+}
+
 LegacyEllipseTool::~LegacyEllipseTool()
 {
     // 清理内存，防止内存泄漏
@@ -308,14 +395,9 @@ bool LegacyEllipseTool::mousePressEvent(QMouseEvent *event, const QPointF &scene
 bool LegacyEllipseTool::mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos)
 {
     if (m_drawing && m_currentItem && m_scene) {
-        // 应用网格对齐
-        QPointF alignedPos = scenePos;
-        if (qobject_cast<DrawingScene*>(m_scene)) {
-            DrawingScene *drawingScene = qobject_cast<DrawingScene*>(m_scene);
-            if (drawingScene->isGridAlignmentEnabled()) {
-                alignedPos = drawingScene->alignToGrid(scenePos);
-            }
-        }
+        // 计算对齐后的位置
+        // 在创建新对象时，不排除任何对象，以便可以吸附到已有对象
+        QPointF alignedPos = smartSnap(scenePos, nullptr);
         
         // 计算新的椭圆大小，基于起始点和当前位置
         QPointF delta = alignedPos - m_startPos;
@@ -361,18 +443,47 @@ bool LegacyEllipseTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &sce
                 delete m_currentItem;
                 m_currentItem = nullptr;
             } else {
-                // 保留图形，设置场景已修改
-                if (m_scene) {
-                    m_scene->setModified(true);
-                }
-                // 重要：将所有权转移给场景，不再由工具管理
+                // 发出形状完成信号
+                emit shapeFinished(m_currentItem);
                 m_currentItem = nullptr;
             }
         }
-        
-        return true;
     }
-    return false;
+    
+    return true;
+}
+
+QPointF ToolBase::smartSnap(const QPointF &scenePos, DrawingShape *excludeShape)
+{
+    QPointF alignedPos = scenePos;
+    
+    if (qobject_cast<DrawingScene*>(m_scene)) {
+        DrawingScene *drawingScene = qobject_cast<DrawingScene*>(m_scene);
+        
+        // 首先尝试对象吸附（优先级更高）
+        DrawingScene::ObjectSnapResult objectSnap = drawingScene->snapToObjects(scenePos, excludeShape);
+        if (objectSnap.snappedToObject) {
+            // 对象吸附成功
+            alignedPos = objectSnap.snappedPos;
+            qDebug() << "Object snap triggered:" << objectSnap.snapDescription;
+        } else {
+            // 对象吸附失败，尝试网格吸附
+            if (drawingScene->isGridAlignmentEnabled()) {
+                DrawingScene::SnapResult gridSnap = drawingScene->smartAlignToGrid(scenePos);
+                if (gridSnap.snappedX || gridSnap.snappedY) {
+                    alignedPos = gridSnap.snappedPos;
+                    qDebug() << "Grid snap: X snapped:" << gridSnap.snappedX << "Y snapped:" << gridSnap.snappedY;
+                }
+            }
+        }
+        
+        // 如果没有发生任何吸附，清除指示器
+        if (alignedPos == scenePos) {
+            drawingScene->clearSnapIndicators();
+        }
+    }
+    
+    return alignedPos;
 }
 
 #include "toolbase.moc"

@@ -101,6 +101,9 @@ private:
     
     // 全局SelectionLayer引用
     static SelectionLayer *s_globalSelectionLayer;
+    
+    // 检测手柄是否与对象相交
+    bool intersectsAnyObject() const;
 };
 
 // EditHandleManager

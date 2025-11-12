@@ -41,7 +41,16 @@ bool DrawingBezierTool::mousePressEvent(QMouseEvent *event, const QPointF &scene
     if (qobject_cast<DrawingScene*>(m_scene)) {
         DrawingScene *drawingScene = qobject_cast<DrawingScene*>(m_scene);
         if (drawingScene->isGridAlignmentEnabled()) {
-            alignedPos = drawingScene->alignToGrid(scenePos);
+            // 使用智能网格吸附
+            DrawingScene::SnapResult gridSnap = drawingScene->smartAlignToGrid(scenePos);
+            alignedPos = gridSnap.snappedPos;
+            
+            // 尝试对象吸附
+            DrawingScene::ObjectSnapResult objectSnap = drawingScene->snapToObjects(scenePos);
+            if (objectSnap.snappedToObject) {
+                // 对象吸附优先级更高
+                alignedPos = objectSnap.snappedPos;
+            }
         }
     }
     
@@ -111,7 +120,16 @@ bool DrawingBezierTool::mouseMoveEvent(QMouseEvent *event, const QPointF &sceneP
     if (qobject_cast<DrawingScene*>(m_scene)) {
         DrawingScene *drawingScene = qobject_cast<DrawingScene*>(m_scene);
         if (drawingScene->isGridAlignmentEnabled()) {
-            alignedPos = drawingScene->alignToGrid(scenePos);
+            // 使用智能网格吸附
+            DrawingScene::SnapResult gridSnap = drawingScene->smartAlignToGrid(scenePos);
+            alignedPos = gridSnap.snappedPos;
+            
+            // 尝试对象吸附
+            DrawingScene::ObjectSnapResult objectSnap = drawingScene->snapToObjects(scenePos);
+            if (objectSnap.snappedToObject) {
+                // 对象吸附优先级更高
+                alignedPos = objectSnap.snappedPos;
+            }
         }
     }
     

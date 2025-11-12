@@ -40,6 +40,9 @@ signals:
     void shapeFinished(DrawingShape *shape);
 
 protected:
+    // 智能吸附辅助函数
+    QPointF smartSnap(const QPointF &scenePos, DrawingShape *excludeShape = nullptr);
+    
     DrawingScene *m_scene;
     DrawingView *m_view;
 };
@@ -72,6 +75,9 @@ public:
     explicit LegacyRectangleTool(QObject *parent = nullptr);
     virtual ~LegacyRectangleTool();
     
+    void activate(DrawingScene *scene, DrawingView *view) override;
+    void deactivate() override;
+    
     bool mousePressEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos) override;
@@ -90,6 +96,9 @@ class LegacyEllipseTool : public ToolBase
 public:
     explicit LegacyEllipseTool(QObject *parent = nullptr);
     virtual ~LegacyEllipseTool();
+    
+    void activate(DrawingScene *scene, DrawingView *view) override;
+    void deactivate() override;
     
     bool mousePressEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos) override;

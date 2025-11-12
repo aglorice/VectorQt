@@ -175,7 +175,16 @@ bool DrawingNodeEditTool::mouseMoveEvent(QMouseEvent *event, const QPointF &scen
         if (m_scene) {
             DrawingScene *drawingScene = qobject_cast<DrawingScene*>(m_scene);
             if (drawingScene && drawingScene->isGridAlignmentEnabled()) {
-                alignedScenePos = drawingScene->alignToGrid(scenePos);
+                // 使用智能网格吸附
+                DrawingScene::SnapResult gridSnap = drawingScene->smartAlignToGrid(scenePos);
+                alignedScenePos = gridSnap.snappedPos;
+                
+                // 尝试对象吸附
+                DrawingScene::ObjectSnapResult objectSnap = drawingScene->snapToObjects(scenePos, m_selectedShape);
+                if (objectSnap.snappedToObject) {
+                    // 对象吸附优先级更高
+                    alignedScenePos = objectSnap.snappedPos;
+                }
             }
         }
         

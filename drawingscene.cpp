@@ -64,11 +64,12 @@ DrawingScene::DrawingScene(QObject *parent)
     , m_gridSize(20)
     , m_gridColor(QColor(200, 200, 200, 100))
     , m_snapEnabled(true)
-    , m_snapTolerance(10)
+    , m_snapTolerance(5)  // 进一步降低网格吸附灵敏度
     , m_objectSnapEnabled(true)
-    , m_objectSnapTolerance(10)
+    , m_objectSnapTolerance(5)  // 进一步降低对象吸附灵敏度
     , m_snapIndicatorsVisible(true)
     , m_guidesEnabled(true)
+    , m_guideSnapEnabled(true)
 {
     // 不在这里创建选择层，只在选择工具激活时创建
     // 暂时不连接选择变化信号，避免在初始化时触发
@@ -103,6 +104,9 @@ void DrawingScene::clearScene()
 
 void DrawingScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
+    // 清除过期的吸附指示器
+    clearExpiredSnapIndicators(event->scenePos());
+    
     // 检查是否点击了空白区域
     QGraphicsItem *item = itemAt(event->scenePos(), QTransform());
     bool clickedOnEmpty = (item == nullptr);
@@ -118,6 +122,8 @@ void DrawingScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 
 void DrawingScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
+    // 清除过期的吸附指示器
+    clearExpiredSnapIndicators(event->scenePos());
     QGraphicsScene::mouseMoveEvent(event);
 }
 
@@ -278,6 +284,8 @@ void DrawingScene::drawBackground(QPainter *painter, const QRectF &rect)
         
         painter->setRenderHint(QPainter::Antialiasing, true);
     }
+    
+    // 吸附指示器移到drawForeground中绘制，确保在最上层
 }
 
 void DrawingScene::drawGrid(QPainter *painter, const QRectF &rect)
@@ -356,6 +364,56 @@ void DrawingScene::setGridColor(const QColor &color)
 QColor DrawingScene::gridColor() const
 {
     return m_gridColor;
+}
+
+QPointF DrawingScene::alignToGrid(const QPointF &pos, DrawingShape *excludeShape, bool *isObjectSnap)
+{
+    QPointF result = pos;
+    bool snapped = false;
+    bool isObjectSnapped = false;  // 标记是否是对象吸附
+    
+    // 🌟 首先尝试对象吸附（优先级最高）
+    if (m_objectSnapEnabled) {
+        ObjectSnapResult objectResult = snapToObjects(pos, excludeShape);
+        if (objectResult.snappedToObject) {
+            result = objectResult.snappedPos;
+            snapped = true;
+            isObjectSnapped = true;
+        }
+    }
+    
+    // 🌟 其次尝试参考线吸附
+    if (!snapped && m_guidesEnabled && m_guideSnapEnabled) {
+        GuideSnapResult guideResult = snapToGuides(pos);
+        if (guideResult.snappedToGuide) {
+            result = guideResult.snappedPos;
+            snapped = true;
+        }
+    }
+    
+    // 🌟 最后尝试网格吸附
+    if (!snapped && m_gridVisible && m_gridAlignmentEnabled) {
+        if (m_snapEnabled) {
+            SnapResult gridResult = smartAlignToGrid(pos);
+            if (gridResult.snappedX || gridResult.snappedY) {
+                result = gridResult.snappedPos;
+                snapped = true;
+            }
+        } else {
+            // 传统对齐方式
+            qreal x = qRound(pos.x() / m_gridSize) * m_gridSize;
+            qreal y = qRound(pos.y() / m_gridSize) * m_gridSize;
+            result = QPointF(x, y);
+            snapped = true;
+        }
+    }
+    
+    // 返回对象吸附标志
+    if (isObjectSnap) {
+        *isObjectSnap = isObjectSnapped;
+    }
+    
+    return result;
 }
 
 QPointF DrawingScene::alignToGrid(const QPointF &pos) const
@@ -536,9 +594,11 @@ DrawingScene::ObjectSnapResult DrawingScene::snapToObjects(const QPointF &pos, D
     qreal minDistance = tolerance + 1;
     
     QList<ObjectSnapPoint> snapPoints = getObjectSnapPoints(excludeShape);
+    qDebug() << "snapToObjects: found" << snapPoints.size() << "snap points, tolerance:" << tolerance;
     
     for (const ObjectSnapPoint &snapPoint : snapPoints) {
         qreal distance = QLineF(pos, snapPoint.position).length();
+        qDebug() << "Checking snap point at" << snapPoint.position << "distance:" << distance << "minDistance:" << minDistance;
         if (distance < minDistance) {
             minDistance = distance;
             result.snappedPos = snapPoint.position;
@@ -559,14 +619,37 @@ DrawingScene::ObjectSnapResult DrawingScene::snapToObjects(const QPointF &pos, D
         }
     }
     
+    // 显示吸附指示器 - 只在真正接近时才显示
+    if (result.snappedToObject) {
+        // 确保距离在容差范围内
+        qreal distance = QLineF(pos, result.snappedPos).length();
+        // 更严格的检查：距离必须小于容差的一半，确保真正接近
+        if (distance <= tolerance * 0.5) {
+            m_hasActiveSnap = true;
+            showSnapIndicators(result);
+        } else {
+            // 距离太远，不触发吸附
+            result.snappedToObject = false;
+            result.snappedPos = pos;
+            m_hasActiveSnap = false;
+            clearSnapIndicators();
+        }
+    } else {
+        // 清除吸附指示器和活跃状态
+        m_hasActiveSnap = false;
+        clearSnapIndicators();
+    }
+    
     return result;
 }
 
 QList<DrawingScene::ObjectSnapPoint> DrawingScene::getObjectSnapPoints(DrawingShape *excludeShape) const
 {
     QList<ObjectSnapPoint> points;
+    QList<QGraphicsItem*> allItems = items();
+    qDebug() << "getObjectSnapPoints: total items in scene:" << allItems.size() << "excludeShape:" << excludeShape;
     
-    for (QGraphicsItem *item : items()) {
+    for (QGraphicsItem *item : allItems) {
         DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
         if (!shape || shape == excludeShape || !shape->isVisible()) {
             continue;
@@ -575,16 +658,20 @@ QList<DrawingScene::ObjectSnapPoint> DrawingScene::getObjectSnapPoints(DrawingSh
         QRectF bounds = shape->boundingRect();
         QPointF center = bounds.center();
         
-        // 添加关键吸附点
-        points.append(ObjectSnapPoint(bounds.topLeft(), SnapToCorner, shape));
-        points.append(ObjectSnapPoint(bounds.topRight(), SnapToCorner, shape));
-        points.append(ObjectSnapPoint(bounds.bottomLeft(), SnapToCorner, shape));
-        points.append(ObjectSnapPoint(bounds.bottomRight(), SnapToCorner, shape));
-        points.append(ObjectSnapPoint(center, SnapToCenterX, shape));
-        points.append(ObjectSnapPoint(QPointF(bounds.left(), center.y()), SnapToLeft, shape));
-        points.append(ObjectSnapPoint(QPointF(bounds.right(), center.y()), SnapToRight, shape));
-        points.append(ObjectSnapPoint(QPointF(center.x(), bounds.top()), SnapToTop, shape));
-        points.append(ObjectSnapPoint(QPointF(center.x(), bounds.bottom()), SnapToBottom, shape));
+        // 转换为场景坐标
+        QRectF sceneBounds = shape->mapRectToScene(bounds);
+        QPointF sceneCenter = sceneBounds.center();
+        
+        // 添加关键吸附点（使用场景坐标）
+        points.append(ObjectSnapPoint(sceneBounds.topLeft(), SnapToCorner, shape));
+        points.append(ObjectSnapPoint(sceneBounds.topRight(), SnapToCorner, shape));
+        points.append(ObjectSnapPoint(sceneBounds.bottomLeft(), SnapToCorner, shape));
+        points.append(ObjectSnapPoint(sceneBounds.bottomRight(), SnapToCorner, shape));
+        points.append(ObjectSnapPoint(sceneCenter, SnapToCenterX, shape));
+        points.append(ObjectSnapPoint(QPointF(sceneBounds.left(), sceneCenter.y()), SnapToLeft, shape));
+        points.append(ObjectSnapPoint(QPointF(sceneBounds.right(), sceneCenter.y()), SnapToRight, shape));
+        points.append(ObjectSnapPoint(QPointF(sceneCenter.x(), sceneBounds.top()), SnapToTop, shape));
+        points.append(ObjectSnapPoint(QPointF(sceneCenter.x(), sceneBounds.bottom()), SnapToBottom, shape));
     }
     
     return points;
@@ -612,19 +699,33 @@ int DrawingScene::objectSnapTolerance() const
 
 void DrawingScene::showSnapIndicators(const ObjectSnapResult &snapResult)
 {
-    Q_UNUSED(snapResult)
-    // TODO: 实现吸附指示器的视觉显示
+    if (!m_snapIndicatorsVisible) {
+        return;
+    }
+    
+    m_lastSnapResult = snapResult;
+    m_hasActiveSnap = true;
+    update(); // 触发重绘以显示指示器
 }
 
 void DrawingScene::clearSnapIndicators()
 {
-    // TODO: 清除吸附指示器
+    if (m_lastSnapResult.snappedToObject) {
+        m_lastSnapResult = ObjectSnapResult();
+        m_hasActiveSnap = false;
+        update(); // 触发重绘以清除指示器
+    }
 }
 
 void DrawingScene::clearExpiredSnapIndicators(const QPointF &currentPos)
 {
-    Q_UNUSED(currentPos)
-    // TODO: 清除过期的吸附指示器
+    if (m_hasActiveSnap && m_lastSnapResult.snappedToObject) {
+        // 检查当前位置是否还在吸附范围内
+        qreal distance = QLineF(currentPos, m_lastSnapResult.snappedPos).length();
+        if (distance > m_objectSnapTolerance) {
+            clearSnapIndicators();
+        }
+    }
 }
 
 void DrawingScene::setSnapIndicatorsVisible(bool visible)
@@ -635,4 +736,169 @@ void DrawingScene::setSnapIndicatorsVisible(bool visible)
 bool DrawingScene::areSnapIndicatorsVisible() const
 {
     return m_snapIndicatorsVisible;
+}
+
+void DrawingScene::drawSnapIndicators(QPainter *painter)
+{
+    if (!m_lastSnapResult.snappedToObject || !m_lastSnapResult.targetShape) {
+        return;
+    }
+    
+    // 检查targetShape是否仍然有效（仍在场景中）
+    if (!m_lastSnapResult.targetShape->scene()) {
+        // 对象已被删除，清除吸附结果
+        m_lastSnapResult = ObjectSnapResult();
+        m_hasActiveSnap = false;
+        return;
+    }
+    
+    // 设置吸附指示器的样式
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    
+    // 绘制吸附点 - 使用更醒目的颜色
+    QColor snapColor = QColor(255, 0, 100); // 亮红色
+    painter->setPen(QPen(snapColor, 1, Qt::SolidLine));
+    painter->setBrush(QBrush(snapColor));
+    
+    // 绘制吸附点（适中的大小）
+    qreal snapPointSize = 5.0;
+    painter->drawEllipse(m_lastSnapResult.snappedPos, snapPointSize, snapPointSize);
+    
+    // 绘制吸附线（从吸附点到目标图形的相关位置）
+    painter->setPen(QPen(snapColor.lighter(120), 1.5, Qt::DashLine)); // 适中的线条粗细
+    painter->setBrush(Qt::NoBrush);
+    
+    // 获取目标图形的边界
+    QRectF targetBounds = m_lastSnapResult.targetShape->boundingRect();
+    QRectF targetSceneBounds = m_lastSnapResult.targetShape->mapRectToScene(targetBounds);
+    QPointF targetCenter = targetSceneBounds.center();
+    
+    // 适中的延伸长度
+    qreal extensionLength = 15.0; // 延伸长度
+    
+    // 根据吸附类型绘制不同的指示线
+    switch (m_lastSnapResult.snapType) {
+        case SnapToLeft:
+            {
+                QPointF endPoint = QPointF(targetSceneBounds.left() - extensionLength, targetCenter.y());
+                painter->drawLine(m_lastSnapResult.snappedPos, endPoint);
+                // 绘制一条到目标边缘的短线
+                painter->setPen(QPen(snapColor, 2, Qt::SolidLine));
+                painter->drawLine(QPointF(targetSceneBounds.left() - 5, targetCenter.y()), 
+                                QPointF(targetSceneBounds.left(), targetCenter.y()));
+            }
+            break;
+        case SnapToRight:
+            {
+                QPointF endPoint = QPointF(targetSceneBounds.right() + extensionLength, targetCenter.y());
+                painter->drawLine(m_lastSnapResult.snappedPos, endPoint);
+                // 绘制一条到目标边缘的短线
+                painter->setPen(QPen(snapColor, 2, Qt::SolidLine));
+                painter->drawLine(QPointF(targetSceneBounds.right() + 5, targetCenter.y()), 
+                                QPointF(targetSceneBounds.right(), targetCenter.y()));
+            }
+            break;
+        case SnapToTop:
+            {
+                QPointF endPoint = QPointF(targetCenter.x(), targetSceneBounds.top() - extensionLength);
+                painter->drawLine(m_lastSnapResult.snappedPos, endPoint);
+                // 绘制一条到目标边缘的短线
+                painter->setPen(QPen(snapColor, 2, Qt::SolidLine));
+                painter->drawLine(QPointF(targetCenter.x(), targetSceneBounds.top() - 5), 
+                                QPointF(targetCenter.x(), targetSceneBounds.top()));
+            }
+            break;
+        case SnapToBottom:
+            {
+                QPointF endPoint = QPointF(targetCenter.x(), targetSceneBounds.bottom() + extensionLength);
+                painter->drawLine(m_lastSnapResult.snappedPos, endPoint);
+                // 绘制一条到目标边缘的短线
+                painter->setPen(QPen(snapColor, 2, Qt::SolidLine));
+                painter->drawLine(QPointF(targetCenter.x(), targetSceneBounds.bottom() + 5), 
+                                QPointF(targetCenter.x(), targetSceneBounds.bottom()));
+            }
+            break;
+        case SnapToCenterX:
+            {
+                // 水平中心线，两端延伸
+                QPointF leftPoint = QPointF(targetSceneBounds.left() - extensionLength, targetCenter.y());
+                QPointF rightPoint = QPointF(targetSceneBounds.right() + extensionLength, targetCenter.y());
+                painter->drawLine(leftPoint, rightPoint);
+                // 绘制中心点标记
+                painter->setPen(QPen(snapColor, 2, Qt::SolidLine));
+                painter->drawLine(QPointF(targetCenter.x() - 5, targetCenter.y()), 
+                                QPointF(targetCenter.x() + 5, targetCenter.y()));
+            }
+            break;
+        case SnapToCenterY:
+            {
+                // 垂直中心线，两端延伸
+                QPointF topPoint = QPointF(targetCenter.x(), targetSceneBounds.top() - extensionLength);
+                QPointF bottomPoint = QPointF(targetCenter.x(), targetSceneBounds.bottom() + extensionLength);
+                painter->drawLine(topPoint, bottomPoint);
+                // 绘制中心点标记
+                painter->setPen(QPen(snapColor, 2, Qt::SolidLine));
+                painter->drawLine(QPointF(targetCenter.x(), targetCenter.y() - 5), 
+                                QPointF(targetCenter.x(), targetCenter.y() + 5));
+            }
+            break;
+        case SnapToCorner:
+            {
+                // 找到最近的角点
+                QPointF corners[] = {
+                    targetSceneBounds.topLeft(),
+                    targetSceneBounds.topRight(),
+                    targetSceneBounds.bottomLeft(),
+                    targetSceneBounds.bottomRight()
+                };
+                
+                QPointF closestCorner = corners[0];
+                qreal minDist = QLineF(m_lastSnapResult.snappedPos, closestCorner).length();
+                
+                for (int i = 1; i < 4; ++i) {
+                    qreal dist = QLineF(m_lastSnapResult.snappedPos, corners[i]).length();
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestCorner = corners[i];
+                    }
+                }
+                
+                // 延伸线通过角点
+                QPointF direction = closestCorner - m_lastSnapResult.snappedPos;
+                qreal length = qSqrt(direction.x() * direction.x() + direction.y() * direction.y());
+                if (length > 0) {
+                    direction = direction / length * extensionLength;
+                    QPointF endPoint = closestCorner + direction;
+                    painter->drawLine(m_lastSnapResult.snappedPos, endPoint);
+                }
+            }
+            break;
+    }
+    
+    // 绘制吸附描述文字
+    if (!m_lastSnapResult.snapDescription.isEmpty()) {
+        painter->setPen(QPen(snapColor.darker(120), 1));
+        QFont font = painter->font();
+        font.setPointSize(9);
+        font.setBold(true);
+        painter->setFont(font);
+        
+        // 在吸附点稍偏位置显示文字
+        QPointF textPos = m_lastSnapResult.snappedPos + QPointF(12, -8);
+        painter->drawText(textPos, m_lastSnapResult.snapDescription);
+    }
+}void DrawingScene::drawForeground(QPainter *painter, const QRectF &rect)
+{
+    // 🌟 在前景绘制对象吸附指示器，确保在最上层不被遮挡
+    if (m_snapIndicatorsVisible && m_hasActiveSnap && m_lastSnapResult.snappedToObject) {
+        // 再次检查目标对象是否仍然有效
+        if (m_lastSnapResult.targetShape && m_lastSnapResult.targetShape->scene()) {
+            // 绘制指示器
+            drawSnapIndicators(painter);
+        } else {
+            // 目标对象已无效，清除吸附状态
+            m_hasActiveSnap = false;
+            m_lastSnapResult = ObjectSnapResult();
+        }
+    }
 }

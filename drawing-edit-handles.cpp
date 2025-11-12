@@ -30,7 +30,7 @@ EditHandle::EditHandle(HandleType type, DrawingShape *parent)
     setFlag(QGraphicsItem::ItemIsFocusable, true);
     // 关键：设置这个标志，使把手不受父项变换的影响
     setFlag(QGraphicsItem::ItemIgnoresTransformations, true);
-    setZValue(1000); // 确保在最上层
+    setZValue(1e10); // 确保在所有元素之上
     // 显式禁用graphics effect，避免滤镜影响
     setGraphicsEffect(nullptr);
 }
@@ -51,7 +51,7 @@ EditHandle::EditHandle(HandleType type, SelectionLayer *parent)
     setFlag(QGraphicsItem::ItemIsFocusable, true);
     // 关键：设置这个标志，使把手不受父项变换的影响
     setFlag(QGraphicsItem::ItemIgnoresTransformations, true);
-    setZValue(1000); // 确保在最上层
+    setZValue(1e10); // 确保在所有元素之上
     // 显式禁用graphics effect，避免滤镜影响
     setGraphicsEffect(nullptr);
 }
@@ -72,7 +72,7 @@ EditHandle::EditHandle(HandleType type, QGraphicsItem *parent)
     setFlag(QGraphicsItem::ItemIsFocusable, true);
     // 关键：设置这个标志，使把手不受父项变换的影响
     setFlag(QGraphicsItem::ItemIgnoresTransformations, true);
-    setZValue(1000); // 确保在最上层
+    setZValue(1e10); // 确保在所有元素之上
     // 显式禁用graphics effect，避免滤镜影响
     setGraphicsEffect(nullptr);
 }
@@ -108,6 +108,12 @@ void EditHandle::paint(QPainter *painter, const QStyleOptionGraphicsItem *option
     // 根据把手类型设置颜色
     QColor fillColor = m_highlighted ? QColor(255, 200, 0) : QColor(255, 255, 255);
     QColor strokeColor = QColor(0, 0, 0);
+    
+    // 🌟 检测手柄是否与任何对象相交，如果相交则设置为半透明
+    if (intersectsAnyObject()) {
+        fillColor.setAlpha(150); // 设置为半透明
+        strokeColor.setAlpha(200); // 边框也稍微透明
+    }
     
     painter->setPen(QPen(strokeColor, 1)); // 减小边框宽度，从2改为1
     painter->setBrush(QBrush(fillColor));
@@ -702,7 +708,16 @@ void EditHandle::updateDragForShape(const QPointF &scenePos)
         if (shape->scene()) {
             DrawingScene *drawingScene = qobject_cast<DrawingScene*>(shape->scene());
             if (drawingScene && drawingScene->isGridAlignmentEnabled()) {
-                alignedPos = drawingScene->alignToGrid(scenePos);
+                // 使用智能网格吸附
+                DrawingScene::SnapResult gridSnap = drawingScene->smartAlignToGrid(scenePos);
+                alignedPos = gridSnap.snappedPos;
+                
+                // 尝试对象吸附
+                DrawingScene::ObjectSnapResult objectSnap = drawingScene->snapToObjects(scenePos, shape);
+                if (objectSnap.snappedToObject) {
+                    // 对象吸附优先级更高
+                    alignedPos = objectSnap.snappedPos;
+                }
             }
         }
         
@@ -1046,6 +1061,41 @@ QPointF EditHandle::getHandlePositionInLocalCoords(HandleType type, const QRectF
         default:
             return center;
     }
+}
+
+bool EditHandle::intersectsAnyObject() const
+{
+    // 获取手柄的场景边界矩形
+    QRectF handleSceneRect = mapRectToScene(boundingRect());
+    
+    // 获取父对象
+    QGraphicsItem *parent = parentItem();
+    if (!parent) {
+        return false;
+    }
+    
+    // 直接检查与父对象的相交
+    QRectF parentSceneRect = parent->mapRectToScene(parent->boundingRect());
+    if (handleSceneRect.intersects(parentSceneRect)) {
+        return true;
+    }
+    
+    // 获取场景
+    QGraphicsScene *scene = this->scene();
+    if (!scene) {
+        return false;
+    }
+    
+    // 检查与其他对象的相交
+    QList<QGraphicsItem*> collidingItems = scene->items(handleSceneRect);
+    for (QGraphicsItem *item : collidingItems) {
+        if (item != this && item != parent) {
+            // 排除自己和父对象
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 #include "drawing-edit-handles.moc"

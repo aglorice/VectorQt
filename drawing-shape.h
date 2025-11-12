@@ -134,6 +134,9 @@ protected:
     
     // 网格对齐
     bool m_gridAlignmentEnabled = false;
+    
+    // 避免递归吸附的标志
+    bool m_applyingSnap = false;
 };
 
 // DrawingRectangle

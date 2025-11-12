@@ -64,6 +64,7 @@ private slots:
     void deleteSelected();
     void copySelected();
     void paste();
+    void duplicate();  // Ctrl+D 快速复制粘贴
     void selectAll();
     void deselectAll();
     void zoomIn();
@@ -151,6 +152,7 @@ private:
     QAction *m_deleteAction;
     QAction *m_copyAction;
     QAction *m_pasteAction;
+    QAction *m_duplicateAction;
     QAction *m_selectAllAction;
     QAction *m_deselectAllAction;
     QAction *m_zoomInAction;

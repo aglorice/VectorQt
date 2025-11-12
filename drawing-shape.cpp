@@ -4,6 +4,7 @@
 #include "drawing-edit-handles.h"
 #include "drawingview.h"
 #include "toolbase.h"
+#include "drawingscene.h"
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QDebug>
@@ -48,7 +49,13 @@ DrawingShape::~DrawingShape()
         setGraphicsEffect(nullptr);
     }
     
-    // 不再需要清理选择指示器，因为我们不再使用它
+    // 清除可能存在的吸附指示器（防止悬空指针）
+    if (scene()) {
+        DrawingScene *drawingScene = qobject_cast<DrawingScene*>(scene());
+        if (drawingScene) {
+            drawingScene->clearSnapIndicators();
+        }
+    }
 }
 
 void DrawingShape::setTransform(const DrawingTransform &transform)
@@ -202,7 +209,29 @@ void DrawingShape::setEditHandlesEnabled(bool enabled)
 
 QVariant DrawingShape::itemChange(GraphicsItemChange change, const QVariant &value)
 {
-    if (change == ItemTransformHasChanged || change == ItemPositionHasChanged) {
+    if (change == ItemPositionChange && scene()) {
+        // 🌟 在位置改变之前应用对象吸附（使用temp分支的方案）
+        QPointF newPos = value.toPointF();
+        
+        DrawingScene *drawingScene = qobject_cast<DrawingScene*>(scene());
+        
+        if (drawingScene && drawingScene->isObjectSnapEnabled()) {
+            // 使用alignToGrid方法，它会处理所有吸附逻辑
+            bool isObjectSnap = false;
+            QPointF alignedPos = drawingScene->alignToGrid(newPos, this, &isObjectSnap);
+            
+            // 如果位置有变化，返回吸附后的位置
+            if (alignedPos != newPos) {
+                // 只有对象吸附才显示指示器
+                if (isObjectSnap) {
+                    return alignedPos;
+                } else {
+                    // 网格吸附，直接返回位置但不显示指示器
+                    return alignedPos;
+                }
+            }
+        }
+    } else if (change == ItemTransformHasChanged || change == ItemPositionHasChanged) {
         // 更新编辑把手位置
         if (m_handleManager) {
             m_handleManager->updateHandles();
