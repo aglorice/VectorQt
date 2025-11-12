@@ -32,6 +32,9 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    
+    // 获取当前填充颜色
+    QColor getCurrentFillColor() const;
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -51,10 +54,16 @@ private slots:
     void bezierTool();
     
     void nodeEditTool();
-    // void lineTool()      // Not implemented yet
-    // void polygonTool()    // Not implemented yet
+    void polylineTool();
+    void polygonTool();
+    void brushTool();
+    void fillTool();
+    void lineTool();
+    void pathEditTool();
     // void textTool()  // Not implemented yet
     void deleteSelected();
+    void copySelected();
+    void paste();
     void selectAll();
     void deselectAll();
     void zoomIn();
@@ -76,6 +85,9 @@ private slots:
     void onSelectionChanged();
     void onSceneChanged();
     void updateZoomLabel();
+    
+    // 🌟 参考线相关槽函数
+    void onGuideRequested(const QPointF &position, Qt::Orientation orientation);
 
 protected:
     void mouseMoveEvent(QMouseEvent *event) override;
@@ -104,7 +116,12 @@ private:
     ToolBase *m_bezierTool;        // 贝塞尔曲线工具
     
     ToolBase *m_nodeEditTool;      // 节点编辑工具
-    // ToolBase *m_polygonTool;     // Not implemented yet
+    ToolBase *m_polylineTool;    // 折线工具
+    ToolBase *m_polygonTool;     // 多边形工具
+    ToolBase *m_brushTool;       // 画笔工具
+    ToolBase *m_fillTool;        // 填充工具
+    ToolBase *m_lineTool;        // 直线工具
+    ToolBase *m_pathEditTool;    // 路径编辑工具
     
     // Rulers
     Ruler *m_horizontalRuler;
@@ -125,7 +142,15 @@ private:
     QAction *m_bezierToolAction;
     
     QAction *m_nodeEditToolAction;
+    QAction *m_polylineToolAction;
+    QAction *m_polygonToolAction;
+    QAction *m_brushToolAction;
+    QAction *m_fillToolAction;
+    QAction *m_lineToolAction;
+    QAction *m_pathEditToolAction;
     QAction *m_deleteAction;
+    QAction *m_copyAction;
+    QAction *m_pasteAction;
     QAction *m_selectAllAction;
     QAction *m_deselectAllAction;
     QAction *m_zoomInAction;

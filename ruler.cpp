@@ -15,8 +15,9 @@ Ruler::Ruler(Orientation orientation, QWidget *parent)
     , m_scale(1.0)
     , m_mouseTracking(false)
     , m_hovered(false)
-    , m_contextMenu(nullptr)
-    , m_view(nullptr)
+, m_contextMenu(nullptr)
+, m_view(nullptr)
+, m_hasSelection(false)
 {
     setMouseTracking(true);
     setAttribute(Qt::WA_NoMousePropagation);
@@ -134,6 +135,11 @@ void Ruler::paintEvent(QPaintEvent *event)
     
     // Draw mouse indicator
     drawMouseIndicator(&painter);
+    
+    // 🌟 绘制选中对象边界
+    if (m_hasSelection && !m_selectedBounds.isEmpty()) {
+        drawSelectionBounds(&painter);
+    }
 }
 
 void Ruler::drawHorizontalRuler(QPainter *painter)
@@ -381,6 +387,25 @@ void Ruler::mousePressEvent(QMouseEvent *event)
 {
     m_mouseTracking = true;
     setMousePos(event->pos());
+    
+    // 🌟 点击标尺创建参考线
+    if (m_view && event->button() == Qt::LeftButton) {
+        QPointF rulerPos = event->position();
+        QPointF scenePos;
+        
+        if (m_orientation == Horizontal) {
+            // 水平标尺：创建垂直参考线，使用鼠标的X坐标
+            scenePos = m_view->mapToScene(QPoint(rulerPos.x(), 0));
+        } else {
+            // 垂直标尺：创建水平参考线，使用鼠标的Y坐标
+            scenePos = m_view->mapToScene(QPoint(0, rulerPos.y()));
+        }
+        
+        // 发射参考线创建信号
+        Qt::Orientation orientation = (m_orientation == Horizontal) ? Qt::Vertical : Qt::Horizontal;
+        emit guideRequested(scenePos, orientation);
+    }
+    
     QWidget::mousePressEvent(event);
 }
 
@@ -502,6 +527,103 @@ qreal Ruler::getUnitScale() const
         default: return 1.0;
     }
 }
+
+// 🌟 选中对象边界相关方法
+void Ruler::setSelectedBounds(const QRectF &bounds)
+{
+    if (m_selectedBounds != bounds) {
+        m_selectedBounds = bounds;
+        m_hasSelection = !bounds.isEmpty();
+        update();
+    }
+}
+
+void Ruler::clearSelectedBounds()
+{
+    if (m_hasSelection) {
+        m_selectedBounds = QRectF();
+        m_hasSelection = false;
+        update();
+    }
+}
+
+void Ruler::drawSelectionBounds(QPainter *painter)
+{
+    if (!m_hasSelection || m_selectedBounds.isEmpty() || !m_view) {
+        return;
+    }
+    
+    // 设置绘制样式
+    QColor boundsColor = QColor(255, 100, 0, 180); // 橙色半透明
+    painter->setPen(QPen(boundsColor, 1.0, Qt::DashLine));
+    painter->setBrush(Qt::NoBrush);
+    
+    // 将场景坐标转换为视图坐标
+    QRect viewBounds = m_view->mapFromScene(m_selectedBounds).boundingRect();
+    
+    if (m_orientation == Horizontal) {
+        // 水平标尺：绘制左右边界标记
+        int left = viewBounds.left();
+        int right = viewBounds.right();
+        
+        // 左边界标记
+        if (left >= 0 && left <= width()) {
+            painter->drawLine(left, RULER_SIZE - 8, left, RULER_SIZE - 2);
+            painter->drawLine(left - 2, RULER_SIZE - 6, left + 2, RULER_SIZE - 6);
+        }
+        
+        // 右边界标记
+        if (right >= 0 && right <= width()) {
+            painter->drawLine(right, RULER_SIZE - 8, right, RULER_SIZE - 2);
+            painter->drawLine(right - 2, RULER_SIZE - 6, right + 2, RULER_SIZE - 6);
+        }
+        
+        // 绘制宽度指示器
+        if (left >= 0 && right <= width() && right - left > 10) {
+            int midX = (left + right) / 2;
+            QString widthText = formatNumber(convertToUnit(right - left));
+            QFontMetrics fm(font());
+            int textWidth = fm.horizontalAdvance(widthText);
+            
+            if (midX - textWidth/2 >= 0 && midX + textWidth/2 <= width()) {
+                painter->setPen(QPen(boundsColor, 1.0, Qt::SolidLine));
+                painter->drawText(midX - textWidth/2, RULER_SIZE - 10, widthText);
+            }
+        }
+    } else {
+        // 垂直标尺：绘制上下边界标记
+        int top = viewBounds.top();
+        int bottom = viewBounds.bottom();
+        
+        // 上边界标记
+        if (top >= 0 && top <= height()) {
+            painter->drawLine(RULER_SIZE - 8, top, RULER_SIZE - 2, top);
+            painter->drawLine(RULER_SIZE - 6, top - 2, RULER_SIZE - 6, top + 2);
+        }
+        
+        // 下边界标记
+        if (bottom >= 0 && bottom <= height()) {
+            painter->drawLine(RULER_SIZE - 8, bottom, RULER_SIZE - 2, bottom);
+            painter->drawLine(RULER_SIZE - 6, bottom - 2, RULER_SIZE - 6, bottom + 2);
+        }
+        
+        // 绘制高度指示器
+        if (top >= 0 && bottom <= height() && bottom - top > 10) {
+            int midY = (top + bottom) / 2;
+            QString heightText = formatNumber(convertToUnit(bottom - top));
+            QFontMetrics fm(font());
+            
+            painter->save();
+            painter->translate(RULER_SIZE - 10, midY);
+            painter->rotate(-90);
+            painter->setPen(QPen(boundsColor, 1.0, Qt::SolidLine));
+            painter->drawText(-fm.horizontalAdvance(heightText)/2, 0, heightText);
+            painter->restore();
+        }
+    }
+}
+
+
 
 QString Ruler::formatNumber(qreal value) const
 {

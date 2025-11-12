@@ -2,6 +2,7 @@
 #include "drawingscene.h"
 #include "drawingview.h"
 #include <QGraphicsScene>
+#include <QMouseEvent>
 
 DrawingToolPolyline::DrawingToolPolyline(QObject *parent)
     : ToolBase(parent)

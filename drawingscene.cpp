@@ -59,10 +59,16 @@ DrawingScene::DrawingScene(QObject *parent)
     : QGraphicsScene(parent)
     , m_isModified(false)
     , m_selectionLayer(nullptr)
-    , m_gridVisible(true)
-    , m_gridAlignmentEnabled(false)  // 默认关闭网格对齐
+    , m_gridVisible(false)
+    , m_gridAlignmentEnabled(true)
     , m_gridSize(20)
-    , m_gridColor(QColor(200, 200, 200, 150))  // 更改网格颜色为浅灰色，适应亮色背景
+    , m_gridColor(QColor(200, 200, 200, 100))
+    , m_snapEnabled(true)
+    , m_snapTolerance(10)
+    , m_objectSnapEnabled(true)
+    , m_objectSnapTolerance(10)
+    , m_snapIndicatorsVisible(true)
+    , m_guidesEnabled(true)
 {
     // 不在这里创建选择层，只在选择工具激活时创建
     // 暂时不连接选择变化信号，避免在初始化时触发
@@ -245,6 +251,33 @@ void DrawingScene::drawBackground(QPainter *painter, const QRectF &rect)
             drawGrid(painter, limitedRect);
         }
     }
+    
+    // 🌟 绘制参考线
+    if (m_guidesEnabled && !m_guides.isEmpty()) {
+        painter->setRenderHint(QPainter::Antialiasing, false);
+        
+        for (const Guide &guide : m_guides) {
+            if (!guide.visible) continue;
+            
+            painter->setPen(QPen(guide.color, 1, Qt::SolidLine));
+            
+            if (guide.orientation == Qt::Vertical) {
+                // 垂直参考线
+                qreal lineX = guide.position;
+                if (lineX >= rect.left() && lineX <= rect.right()) {
+                    painter->drawLine(QPointF(lineX, rect.top()), QPointF(lineX, rect.bottom()));
+                }
+            } else {
+                // 水平参考线
+                qreal lineY = guide.position;
+                if (lineY >= rect.top() && lineY <= rect.bottom()) {
+                    painter->drawLine(QPointF(rect.left(), lineY), QPointF(rect.right(), lineY));
+                }
+            }
+        }
+        
+        painter->setRenderHint(QPainter::Antialiasing, true);
+    }
 }
 
 void DrawingScene::drawGrid(QPainter *painter, const QRectF &rect)
@@ -360,4 +393,246 @@ void DrawingScene::onSelectionChanged()
     qDebug() << "onSelectionChanged called";
     // 直接更新选择
     updateSelection();
+}
+
+// 🌟 智能吸附功能实现
+DrawingScene::SnapResult DrawingScene::smartAlignToGrid(const QPointF &pos) const
+{
+    SnapResult result;
+    result.snappedPos = pos;
+    
+    if (!m_snapEnabled || !m_gridAlignmentEnabled || !m_gridVisible) {
+        return result;
+    }
+    
+    const int tolerance = m_snapTolerance;
+    const int gridSize = m_gridSize;
+    
+    // 计算最近的网格线
+    int gridX = qRound(pos.x() / gridSize) * gridSize;
+    int gridY = qRound(pos.y() / gridSize) * gridSize;
+    
+    // 检查X方向是否需要吸附
+    if (qAbs(pos.x() - gridX) <= tolerance) {
+        result.snappedPos.setX(gridX);
+        result.snappedX = true;
+    }
+    
+    // 检查Y方向是否需要吸附
+    if (qAbs(pos.y() - gridY) <= tolerance) {
+        result.snappedPos.setY(gridY);
+        result.snappedY = true;
+    }
+    
+    return result;
+}
+
+void DrawingScene::setSnapEnabled(bool enabled)
+{
+    m_snapEnabled = enabled;
+}
+
+bool DrawingScene::isSnapEnabled() const
+{
+    return m_snapEnabled;
+}
+
+void DrawingScene::setSnapTolerance(int tolerance)
+{
+    m_snapTolerance = qMax(1, tolerance);
+}
+
+int DrawingScene::snapTolerance() const
+{
+    return m_snapTolerance;
+}
+
+// 🌟 参考线系统实现
+void DrawingScene::addGuide(Qt::Orientation orientation, qreal position)
+{
+    m_guides.append(Guide(orientation, position));
+    update();
+}
+
+void DrawingScene::removeGuide(Qt::Orientation orientation, qreal position)
+{
+    for (int i = 0; i < m_guides.size(); ++i) {
+        if (m_guides[i].orientation == orientation && qAbs(m_guides[i].position - position) < 1.0) {
+            m_guides.removeAt(i);
+            update();
+            break;
+        }
+    }
+}
+
+void DrawingScene::clearGuides()
+{
+    m_guides.clear();
+    update();
+}
+
+void DrawingScene::setGuideVisible(Qt::Orientation orientation, qreal position, bool visible)
+{
+    for (Guide &guide : m_guides) {
+        if (guide.orientation == orientation && qAbs(guide.position - position) < 1.0) {
+            guide.visible = visible;
+            update();
+            break;
+        }
+    }
+}
+
+DrawingScene::GuideSnapResult DrawingScene::snapToGuides(const QPointF &pos) const
+{
+    GuideSnapResult result;
+    result.snappedPos = pos;
+    
+    if (!m_snapEnabled || m_guides.isEmpty()) {
+        return result;
+    }
+    
+    const int tolerance = m_snapTolerance;
+    qreal minDistance = tolerance + 1;
+    
+    for (const Guide &guide : m_guides) {
+        if (!guide.visible) continue;
+        
+        qreal distance;
+        if (guide.orientation == Qt::Vertical) {
+            distance = qAbs(pos.x() - guide.position);
+            if (distance < minDistance) {
+                minDistance = distance;
+                result.snappedPos.setX(guide.position);
+                result.snappedToGuide = true;
+                result.snapOrientation = Qt::Vertical;
+                result.guidePosition = guide.position;
+            }
+        } else {
+            distance = qAbs(pos.y() - guide.position);
+            if (distance < minDistance) {
+                minDistance = distance;
+                result.snappedPos.setY(guide.position);
+                result.snappedToGuide = true;
+                result.snapOrientation = Qt::Horizontal;
+                result.guidePosition = guide.position;
+            }
+        }
+    }
+    
+    return result;
+}
+
+// 🌟 对象吸附功能实现
+DrawingScene::ObjectSnapResult DrawingScene::snapToObjects(const QPointF &pos, DrawingShape *excludeShape)
+{
+    ObjectSnapResult result;
+    result.snappedPos = pos;
+    
+    if (!m_objectSnapEnabled) {
+        return result;
+    }
+    
+    const int tolerance = m_objectSnapTolerance;
+    qreal minDistance = tolerance + 1;
+    
+    QList<ObjectSnapPoint> snapPoints = getObjectSnapPoints(excludeShape);
+    
+    for (const ObjectSnapPoint &snapPoint : snapPoints) {
+        qreal distance = QLineF(pos, snapPoint.position).length();
+        if (distance < minDistance) {
+            minDistance = distance;
+            result.snappedPos = snapPoint.position;
+            result.snappedToObject = true;
+            result.snapType = snapPoint.type;
+            result.targetShape = snapPoint.shape;
+            
+            // 设置描述
+            switch (snapPoint.type) {
+                case SnapToLeft: result.snapDescription = "吸附到左边"; break;
+                case SnapToRight: result.snapDescription = "吸附到右边"; break;
+                case SnapToTop: result.snapDescription = "吸附到上边"; break;
+                case SnapToBottom: result.snapDescription = "吸附到下边"; break;
+                case SnapToCenterX: result.snapDescription = "吸附到水平中心"; break;
+                case SnapToCenterY: result.snapDescription = "吸附到垂直中心"; break;
+                case SnapToCorner: result.snapDescription = "吸附到角点"; break;
+            }
+        }
+    }
+    
+    return result;
+}
+
+QList<DrawingScene::ObjectSnapPoint> DrawingScene::getObjectSnapPoints(DrawingShape *excludeShape) const
+{
+    QList<ObjectSnapPoint> points;
+    
+    for (QGraphicsItem *item : items()) {
+        DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+        if (!shape || shape == excludeShape || !shape->isVisible()) {
+            continue;
+        }
+        
+        QRectF bounds = shape->boundingRect();
+        QPointF center = bounds.center();
+        
+        // 添加关键吸附点
+        points.append(ObjectSnapPoint(bounds.topLeft(), SnapToCorner, shape));
+        points.append(ObjectSnapPoint(bounds.topRight(), SnapToCorner, shape));
+        points.append(ObjectSnapPoint(bounds.bottomLeft(), SnapToCorner, shape));
+        points.append(ObjectSnapPoint(bounds.bottomRight(), SnapToCorner, shape));
+        points.append(ObjectSnapPoint(center, SnapToCenterX, shape));
+        points.append(ObjectSnapPoint(QPointF(bounds.left(), center.y()), SnapToLeft, shape));
+        points.append(ObjectSnapPoint(QPointF(bounds.right(), center.y()), SnapToRight, shape));
+        points.append(ObjectSnapPoint(QPointF(center.x(), bounds.top()), SnapToTop, shape));
+        points.append(ObjectSnapPoint(QPointF(center.x(), bounds.bottom()), SnapToBottom, shape));
+    }
+    
+    return points;
+}
+
+void DrawingScene::setObjectSnapEnabled(bool enabled)
+{
+    m_objectSnapEnabled = enabled;
+}
+
+bool DrawingScene::isObjectSnapEnabled() const
+{
+    return m_objectSnapEnabled;
+}
+
+void DrawingScene::setObjectSnapTolerance(int tolerance)
+{
+    m_objectSnapTolerance = qMax(1, tolerance);
+}
+
+int DrawingScene::objectSnapTolerance() const
+{
+    return m_objectSnapTolerance;
+}
+
+void DrawingScene::showSnapIndicators(const ObjectSnapResult &snapResult)
+{
+    Q_UNUSED(snapResult)
+    // TODO: 实现吸附指示器的视觉显示
+}
+
+void DrawingScene::clearSnapIndicators()
+{
+    // TODO: 清除吸附指示器
+}
+
+void DrawingScene::clearExpiredSnapIndicators(const QPointF &currentPos)
+{
+    Q_UNUSED(currentPos)
+    // TODO: 清除过期的吸附指示器
+}
+
+void DrawingScene::setSnapIndicatorsVisible(bool visible)
+{
+    m_snapIndicatorsVisible = visible;
+}
+
+bool DrawingScene::areSnapIndicatorsVisible() const
+{
+    return m_snapIndicatorsVisible;
 }

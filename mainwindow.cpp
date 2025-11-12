@@ -7,6 +7,12 @@
 #include "drawing-tool-bezier.h"
 #include "drawing-tool-bezier-edit.h"
 #include "drawing-tool-node-edit.h"
+#include "drawing-tool-polyline.h"
+#include "drawing-tool-polygon.h"
+#include "drawing-tool-brush.h"
+#include "drawing-tool-fill.h"
+#include "drawing-tool-line.h"
+#include "drawing-tool-path-edit.h"
 #include "selection-layer.h"
 #include "ruler.h"
 // #include "layermanager.h"  // Not implemented yet
@@ -17,6 +23,9 @@
 #include "colorpalette.h"
 #include "drawing-group.h"
 #include <QMenuBar>
+#include <QClipboard>
+#include <QApplication>
+#include <QMimeData>
 #include <QMenu>
 #include <QToolBar>
 #include <QStatusBar>
@@ -188,6 +197,12 @@ void MainWindow::setupUI()
                     m_horizontalRuler->blockSignals(false);
                 } });
 
+    // 🌟 连接参考线创建信号
+    connect(m_horizontalRuler, &Ruler::guideRequested,
+            this, &MainWindow::onGuideRequested);
+    connect(m_verticalRuler, &Ruler::guideRequested,
+            this, &MainWindow::onGuideRequested);
+
     // Create corner widget - match ruler size to provide proper alignment
     m_cornerWidget = new QWidget(this);
     m_cornerWidget->setFixedSize(Ruler::rulerSize(), Ruler::rulerSize());
@@ -233,8 +248,12 @@ void MainWindow::setupUI()
     m_ellipseTool = new LegacyEllipseTool(this);
     m_bezierTool = new DrawingBezierTool(this);
     m_nodeEditTool = new DrawingNodeEditTool(this);
-    // m_lineTool = new LineTool(this);      // Not implemented yet
-    // m_polygonTool = new PolygonTool(this);   // Not implemented yet
+    m_polylineTool = new DrawingToolPolyline(this);
+    m_polygonTool = new DrawingToolPolygon(this);
+    m_brushTool = new DrawingToolBrush(this);
+    m_fillTool = new DrawingToolFill(this);
+    m_lineTool = new DrawingToolLine(this);
+    m_pathEditTool = new DrawingToolPathEdit(this);
     // m_textTool = new TextTool(this);  // Not implemented yet
 
     // Create layer manager - Not implemented yet
@@ -331,6 +350,9 @@ void MainWindow::setupMenus()
     editMenu->addSeparator();
     editMenu->addAction(m_deleteAction);
     editMenu->addSeparator();
+    editMenu->addAction(m_copyAction);
+    editMenu->addAction(m_pasteAction);
+    editMenu->addSeparator();
     editMenu->addAction(m_selectAllAction);
     editMenu->addAction(m_deselectAllAction);
     editMenu->addSeparator();
@@ -364,8 +386,12 @@ void MainWindow::setupMenus()
     toolsMenu->addAction(m_ellipseToolAction);
     toolsMenu->addAction(m_bezierToolAction);
     toolsMenu->addAction(m_nodeEditToolAction);
-    // toolsMenu->addAction(m_lineToolAction);     // Not implemented yet
-    // toolsMenu->addAction(m_polygonToolAction);  // Not implemented yet
+    toolsMenu->addAction(m_polylineToolAction);
+    toolsMenu->addAction(m_polygonToolAction);
+    toolsMenu->addAction(m_brushToolAction);
+    toolsMenu->addAction(m_fillToolAction);
+    toolsMenu->addAction(m_lineToolAction);
+    toolsMenu->addAction(m_pathEditToolAction);
     // toolsMenu->addAction(m_textToolAction);  // Not implemented yet
 
     // Help menu
@@ -442,8 +468,12 @@ void MainWindow::setupToolbars()
     toolsToolBar->addAction(m_ellipseToolAction);
     toolsToolBar->addAction(m_bezierToolAction);
     toolsToolBar->addAction(m_nodeEditToolAction);
-    // toolsToolBar->addAction(m_lineToolAction);     // Not implemented yet
-    // toolsToolBar->addAction(m_polygonToolAction);  // Not implemented yet
+    toolsToolBar->addAction(m_polylineToolAction);
+    toolsToolBar->addAction(m_polygonToolAction);
+    toolsToolBar->addAction(m_brushToolAction);
+    toolsToolBar->addAction(m_fillToolAction);
+    toolsToolBar->addAction(m_lineToolAction);
+    toolsToolBar->addAction(m_pathEditToolAction);
     // toolsToolBar->addAction(m_textToolAction);  // Not implemented yet
 
     // View toolbar - 包含视图、组合和对齐操作
@@ -563,6 +593,14 @@ void MainWindow::createActions()
     m_deleteAction->setShortcut(QKeySequence::Delete);
     m_deleteAction->setStatusTip("删除选中项目");
 
+    m_copyAction = new QAction("&复制", this);
+    m_copyAction->setShortcut(QKeySequence::Copy);
+    m_copyAction->setStatusTip("复制选中项目");
+
+    m_pasteAction = new QAction("&粘贴", this);
+    m_pasteAction->setShortcut(QKeySequence::Paste);
+    m_pasteAction->setStatusTip("粘贴项目");
+
     m_selectAllAction = new QAction("全选(&A)", this);
     m_selectAllAction->setShortcut(QKeySequence::SelectAll);
     m_selectAllAction->setStatusTip("选择所有项目");
@@ -674,17 +712,47 @@ void MainWindow::createActions()
     m_nodeEditToolAction->setIcon(QIcon(":/icons/icons/node-edit-tool.svg")); // 使用专用节点编辑图标
     m_toolGroup->addAction(m_nodeEditToolAction);
 
-    // m_lineToolAction = new QAction("&线条工具", this);      // Not implemented yet
-    // m_lineToolAction->setCheckable(true);
-    // m_lineToolAction->setShortcut(QKeySequence("L"));
-    // m_lineToolAction->setStatusTip("绘制线条");
-    // m_toolGroup->addAction(m_lineToolAction);
+    m_polylineToolAction = new QAction("&折线工具", this);
+    m_polylineToolAction->setCheckable(true);
+    m_polylineToolAction->setShortcut(QKeySequence("Y"));
+    m_polylineToolAction->setStatusTip("绘制折线");
+    m_polylineToolAction->setIcon(QIcon(":/icons/icons/polyline-tool-new.svg"));
+    m_toolGroup->addAction(m_polylineToolAction);
 
-    // m_polygonToolAction = new QAction("&多边形工具", this);  // Not implemented yet
-    // m_polygonToolAction->setCheckable(true);
-    // m_polygonToolAction->setShortcut(QKeySequence("P"));
-    // m_polygonToolAction->setStatusTip("绘制多边形");
-    // m_toolGroup->addAction(m_polygonToolAction);
+    m_polygonToolAction = new QAction("&多边形工具", this);
+    m_polygonToolAction->setCheckable(true);
+    m_polygonToolAction->setShortcut(QKeySequence("P"));
+    m_polygonToolAction->setStatusTip("绘制多边形");
+    m_polygonToolAction->setIcon(QIcon(":/icons/icons/polygon-tool-new.svg"));
+    m_toolGroup->addAction(m_polygonToolAction);
+
+    m_brushToolAction = new QAction("&画笔工具", this);
+    m_brushToolAction->setCheckable(true);
+    m_brushToolAction->setShortcut(QKeySequence("B"));
+    m_brushToolAction->setStatusTip("自由绘制");
+    m_brushToolAction->setIcon(QIcon(":/icons/icons/brush-tool-new.svg"));
+    m_toolGroup->addAction(m_brushToolAction);
+
+    m_fillToolAction = new QAction("&填充工具", this);
+    m_fillToolAction->setCheckable(true);
+    m_fillToolAction->setShortcut(QKeySequence("F"));
+    m_fillToolAction->setStatusTip("填充区域");
+    m_fillToolAction->setIcon(QIcon(":/icons/icons/fill-tool-new.svg"));
+    m_toolGroup->addAction(m_fillToolAction);
+
+    m_lineToolAction = new QAction("&线条工具", this);
+    m_lineToolAction->setCheckable(true);
+    m_lineToolAction->setShortcut(QKeySequence("L"));
+    m_lineToolAction->setStatusTip("绘制线条");
+    m_lineToolAction->setIcon(QIcon(":/icons/icons/line-tool-new.svg"));
+    m_toolGroup->addAction(m_lineToolAction);
+
+    m_pathEditToolAction = new QAction("&路径编辑工具", this);
+    m_pathEditToolAction->setCheckable(true);
+    m_pathEditToolAction->setShortcut(QKeySequence("Ctrl+Shift+P"));
+    m_pathEditToolAction->setStatusTip("编辑路径");
+    m_pathEditToolAction->setIcon(QIcon(":/icons/icons/path-edit-tool-new.svg"));
+    m_toolGroup->addAction(m_pathEditToolAction);
 
     // m_textToolAction = new QAction("&文本工具", this);  // Not implemented yet
     // m_textToolAction->setCheckable(true);
@@ -711,6 +779,8 @@ void MainWindow::connectActions()
     connect(m_undoAction, &QAction::triggered, this, &MainWindow::undo);
     connect(m_redoAction, &QAction::triggered, this, &MainWindow::redo);
     connect(m_deleteAction, &QAction::triggered, this, &MainWindow::deleteSelected);
+    connect(m_copyAction, &QAction::triggered, this, &MainWindow::copySelected);
+    connect(m_pasteAction, &QAction::triggered, this, &MainWindow::paste);
     connect(m_selectAllAction, &QAction::triggered, this, &MainWindow::selectAll);
     connect(m_deselectAllAction, &QAction::triggered, this, &MainWindow::deselectAll);
 
@@ -745,8 +815,12 @@ void MainWindow::connectActions()
     connect(m_bezierToolAction, &QAction::triggered, this, &MainWindow::bezierTool);
     
     connect(m_nodeEditToolAction, &QAction::triggered, this, &MainWindow::nodeEditTool);
-    // connect(m_lineToolAction, &QAction::triggered, this, &MainWindow::lineTool);      // Not implemented yet
-    // connect(m_polygonToolAction, &QAction::triggered, this, &MainWindow::polygonTool);  // Not implemented yet
+    connect(m_polylineToolAction, &QAction::triggered, this, &MainWindow::polylineTool);
+    connect(m_polygonToolAction, &QAction::triggered, this, &MainWindow::polygonTool);
+    connect(m_brushToolAction, &QAction::triggered, this, &MainWindow::brushTool);
+    connect(m_fillToolAction, &QAction::triggered, this, &MainWindow::fillTool);
+    connect(m_lineToolAction, &QAction::triggered, this, &MainWindow::lineTool);
+    connect(m_pathEditToolAction, &QAction::triggered, this, &MainWindow::pathEditTool);
     // connect(m_textToolAction, &QAction::triggered, this, &MainWindow::textTool);  // Not implemented yet
 
     // Help connections
@@ -822,6 +896,8 @@ void MainWindow::setCurrentTool(ToolBase *tool)
                                                                                          tool ? "未知"
                                                                                               : "未知")); // Simplified since TextTool is not implemented
 }
+
+
 
 void MainWindow::newFile()
 {
@@ -956,15 +1032,35 @@ void MainWindow::nodeEditTool()
 
 
 
-// void MainWindow::lineTool()      // Not implemented yet
-// {
-//     setCurrentTool(m_lineTool);
-// }
+void MainWindow::polylineTool()
+{
+    setCurrentTool(m_polylineTool);
+}
 
-// void MainWindow::polygonTool()    // Not implemented yet
-// {
-//     setCurrentTool(m_polygonTool);
-// }
+void MainWindow::polygonTool()
+{
+    setCurrentTool(m_polygonTool);
+}
+
+void MainWindow::brushTool()
+{
+    setCurrentTool(m_brushTool);
+}
+
+void MainWindow::fillTool()
+{
+    setCurrentTool(m_fillTool);
+}
+
+void MainWindow::lineTool()
+{
+    setCurrentTool(m_lineTool);
+}
+
+void MainWindow::pathEditTool()
+{
+    setCurrentTool(m_pathEditTool);
+}
 
 // void MainWindow::textTool()  // Not implemented yet
 // {
@@ -997,6 +1093,66 @@ void MainWindow::deleteSelected()
         }
     }
     m_scene->setModified(true);
+}
+
+void MainWindow::copySelected()
+{
+    if (!m_scene)
+        return;
+
+    QList<QGraphicsItem *> selected = m_scene->selectedItems();
+    if (selected.isEmpty())
+        return;
+
+    // 创建MIME数据来存储复制的项目
+    QMimeData *mimeData = new QMimeData();
+    
+    // 这里简化实现，实际应该序列化图形数据
+    // 暂时只复制数量信息用于测试
+    QString copyData = QString("copied_items:%1").arg(selected.size());
+    mimeData->setText(copyData);
+    
+    // 放到剪贴板
+    QApplication::clipboard()->setMimeData(mimeData);
+    
+    m_statusLabel->setText(QString("已复制 %1 个项目").arg(selected.size()));
+}
+
+void MainWindow::paste()
+{
+    if (!m_scene)
+        return;
+
+    const QMimeData *mimeData = QApplication::clipboard()->mimeData();
+    if (!mimeData || !mimeData->hasText())
+        return;
+
+    QString pasteData = mimeData->text();
+    if (!pasteData.startsWith("copied_items:"))
+        return;
+
+    // 简化实现：创建一些测试图形
+    bool ok;
+    int itemCount = pasteData.mid(13).toInt(&ok);
+    if (!ok || itemCount <= 0)
+        return;
+
+    // 清除当前选择
+    m_scene->clearSelection();
+    
+    // 创建复制的项目（简化版本）
+    for (int i = 0; i < itemCount; ++i) {
+        // 创建一个简单的矩形作为复制示例
+        DrawingRectangle *rect = new DrawingRectangle();
+        rect->setRectangle(QRectF(100 + i * 30, 100 + i * 30, 80, 60));
+        rect->setFillBrush(QColor(100 + i * 30, 150, 200));
+        rect->setStrokePen(QPen(Qt::black, 2));
+        m_scene->addItem(rect);
+        rect->setSelected(true);
+    }
+    
+    m_scene->setModified(true);
+    m_statusLabel->setText(QString("已粘贴 %1 个项目").arg(itemCount));
 }
 
 void MainWindow::selectAll()
@@ -1268,6 +1424,34 @@ void MainWindow::onSelectionChanged()
     if (m_propertyPanel)
     {
         m_propertyPanel->onSelectionChanged();
+    }
+    
+    // 🌟 更新标尺显示选中对象边界
+    if (m_scene && m_horizontalRuler && m_verticalRuler) {
+        QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+        if (!selectedItems.isEmpty()) {
+            // 计算选中对象的联合边界
+            QRectF combinedBounds;
+            bool first = true;
+            for (QGraphicsItem *item : selectedItems) {
+                QRectF itemBounds = item->boundingRect();
+                itemBounds.translate(item->pos());
+                if (first) {
+                    combinedBounds = itemBounds;
+                    first = false;
+                } else {
+                    combinedBounds = combinedBounds.united(itemBounds);
+                }
+            }
+            
+            // 更新标尺显示
+            m_horizontalRuler->setSelectedBounds(combinedBounds);
+            m_verticalRuler->setSelectedBounds(combinedBounds);
+        } else {
+            // 清除标尺显示
+            m_horizontalRuler->clearSelectedBounds();
+            m_verticalRuler->clearSelectedBounds();
+        }
     }
 }
 
@@ -1591,4 +1775,40 @@ void MainWindow::alignBottom()
     m_scene->update();
     m_scene->setModified(true);
     m_statusLabel->setText(QString("已底部对齐 %1 个项目").arg(selectedItems.size()));
+}
+
+// 🌟 参考线创建槽函数
+void MainWindow::onGuideRequested(const QPointF &position, Qt::Orientation orientation)
+{
+    if (!m_scene) return;
+    
+    // 提取参考线位置（只需要一个坐标）
+    qreal guidePos = (orientation == Qt::Horizontal) ? position.y() : position.x();
+    
+    // 检查是否已存在相同位置的参考线
+    QList<DrawingScene::Guide> existingGuides = m_scene->guides();
+    for (const DrawingScene::Guide &guide : existingGuides) {
+        if (guide.orientation == orientation && qAbs(guide.position - guidePos) < 2.0) {
+            // 如果已存在，则删除该参考线
+            m_scene->removeGuide(orientation, guide.position);
+            m_statusLabel->setText(QString("删除参考线: %1 @ %2")
+                                 .arg(orientation == Qt::Horizontal ? "水平" : "垂直")
+                                 .arg(guidePos, 0, 'f', 1));
+            return;
+        }
+    }
+    
+    // 添加新参考线
+    m_scene->addGuide(orientation, guidePos);
+    m_statusLabel->setText(QString("创建参考线: %1 @ %2")
+                         .arg(orientation == Qt::Horizontal ? "水平" : "垂直")
+                         .arg(guidePos, 0, 'f', 1));
+}
+
+QColor MainWindow::getCurrentFillColor() const
+{
+    if (m_colorPalette) {
+        return m_colorPalette->getCurrentFillColor();
+    }
+    return Qt::blue; // 默认颜色
 }

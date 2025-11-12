@@ -26,13 +26,19 @@ set(SOURCES
     qdrawpro.cpp
     # 新增的改进绘图系统
     drawing-shape.cpp
-    drawing-tool-base.cpp
     drawing-transform.cpp
     drawing-edit-handles.cpp
     selection-layer.cpp
     drawing-tool-bezier.cpp
     drawing-tool-bezier-edit.cpp
     drawing-tool-node-edit.cpp
+    # 新增的绘图工具
+    drawing-tool-brush.cpp
+    drawing-tool-fill.cpp
+    drawing-tool-line.cpp
+    drawing-tool-polyline.cpp
+    drawing-tool-polygon.cpp
+    drawing-tool-path-edit.cpp
     # 图层系统
     drawing-layer.cpp
     # SVG处理
@@ -41,6 +47,8 @@ set(SOURCES
     drawing-group.cpp
     # 颜色调色板
     colorpalette.cpp
+    # 路径编辑器
+    patheditor.cpp
 )
 
 # 收集头文件
@@ -59,12 +67,18 @@ set(HEADERS
     graphics-adapter.h
     # 新增的改进绘图系统
     drawing-shape.h
-    drawing-tool-base.h
     drawing-transform.h
     selection-layer.h
     drawing-tool-bezier.h
     drawing-tool-bezier-edit.h
     drawing-tool-node-edit.h
+    # 新增的绘图工具
+    drawing-tool-brush.h
+    drawing-tool-fill.h
+    drawing-tool-line.h
+    drawing-tool-polyline.h
+    drawing-tool-polygon.h
+    drawing-tool-path-edit.h
     # 图层系统
     drawing-layer.h
     # SVG处理
@@ -73,6 +87,8 @@ set(HEADERS
     drawing-group.h
     # 颜色调色板
     colorpalette.h
+    # 路径编辑器
+    patheditor.h
 )
 
 # 收集资源文件

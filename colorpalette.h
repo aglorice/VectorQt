@@ -73,6 +73,11 @@ public slots:
     void selectFillColor(const QColor &color);
     void selectStrokeColor(const QColor &color);
 
+public:
+    // 获取当前填充颜色
+    QColor getCurrentFillColor() const { return m_currentFillColor; }
+    QColor getCurrentStrokeColor() const { return m_currentStrokeColor; }
+
 private slots:
     void onFillColorButtonClicked();
     void onStrokeColorButtonClicked();

@@ -41,6 +41,11 @@ public:
     void setUnit(Unit unit);
     Unit unit() const { return m_unit; }
     
+    // 🌟 选中对象边界显示
+    void setSelectedBounds(const QRectF &bounds);
+    void clearSelectedBounds();
+    QRectF selectedBounds() const { return m_selectedBounds; }
+    
     QSize sizeHint() const override;
     
     static int rulerSize() { return RULER_SIZE; }
@@ -60,6 +65,9 @@ private slots:
     void setUnitCentimeters();
     void setUnitInches();
     void setUnitPoints();
+
+private:
+    void drawSelectionBounds(QPainter *painter);
 
 private:
     void drawHorizontalRuler(QPainter *painter);
@@ -88,6 +96,10 @@ private:
     QAction *m_inchesAction;
     QAction *m_pointsAction;
     QGraphicsView *m_view;
+    
+    // 🌟 选中对象边界相关
+    QRectF m_selectedBounds;  // 选中对象的场景边界
+    bool m_hasSelection;      // 是否有选中对象
     
     // Inkscape-inspired constants
     static const int RULER_SIZE = 24;  // Slightly larger for better readability

@@ -11,5 +11,12 @@
         <file>icons/bezier-tool-new.svg</file>
         <file>icons/bezier-edit-tool-new.svg</file>
         <file>icons/node-edit-tool.svg</file>
+        <!-- 新增的绘图工具图标 -->
+        <file>icons/brush-tool-new.svg</file>
+        <file>icons/fill-tool-new.svg</file>
+        <file>icons/line-tool-new.svg</file>
+        <file>icons/polyline-tool-new.svg</file>
+        <file>icons/polygon-tool-new.svg</file>
+        <file>icons/path-edit-tool-new.svg</file>
     </qresource>
 </RCC>
