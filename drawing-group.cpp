@@ -313,26 +313,23 @@ void DrawingGroup::applyScale(const QPointF &anchor, qreal sx, qreal sy)
         return;
     }
     
-    // 🌟 使用control-frame的直接矩阵方法，而不是DrawingTransform::scale
-    for (DrawingShape *item : m_items) {
-        if (item && item->parentItem() == this) {
-            QPointF anchorLocal = item->mapFromScene(anchor);
-            QTransform t;
-            t.translate(anchorLocal.x(), anchorLocal.y());
-            t.scale(sx, sy);
-            t.translate(-anchorLocal.x(), -anchorLocal.y());
-            
-            // 🌟 关键：应用到初始变换上，保持相对关系
-            QTransform combinedTransform = t * m_initialTransforms[item];
-            item->setTransform(DrawingTransform(combinedTransform));
-        }
-    }
+    // 将锚点转换为组合对象的本地坐标
+    QPointF anchorLocal = mapFromScene(anchor);
+    
+    // 将缩放应用到组合对象本身
+    QTransform groupTransform = m_transform.transform();
+    QTransform scaleTransform;
+    scaleTransform.translate(anchorLocal.x(), anchorLocal.y());
+    scaleTransform.scale(sx, sy);
+    scaleTransform.translate(-anchorLocal.x(), -anchorLocal.y());
+    
+    setTransform(DrawingTransform(scaleTransform * groupTransform));
     
     // 更新几何
     prepareGeometryChange();
     update();
     
-    // 🌟 更新编辑手柄位置
+    // 更新编辑手柄位置
     if (editHandleManager()) {
         editHandleManager()->updateHandles();
     }
@@ -596,47 +593,10 @@ void DrawingGroup::applyScaleWithHandle(int handleType, const QPointF &initialHa
         return;
     }
     
-    // 🌟 完整实现drawing-edit-handles的缩放逻辑
-    
-    // 1. 根据手柄类型确定锚点（参考drawing-edit-handles）
-    DrawingTransform::AnchorPoint anchor = DrawingTransform::Center;
-    
-    // 手柄类型映射到锚点
-    switch (handleType) {
-        case 1: // TopLeft
-            anchor = DrawingTransform::BottomRight;
-            break;
-        case 2: // TopCenter
-            anchor = DrawingTransform::BottomCenter;
-            break;
-        case 3: // TopRight
-            anchor = DrawingTransform::BottomLeft;
-            break;
-        case 4: // CenterLeft
-            anchor = DrawingTransform::CenterRight;
-            break;
-        case 5: // CenterRight
-            anchor = DrawingTransform::CenterLeft;
-            break;
-        case 6: // BottomLeft
-            anchor = DrawingTransform::TopRight;
-            break;
-        case 7: // BottomCenter
-            anchor = DrawingTransform::TopCenter;
-            break;
-        case 8: // BottomRight
-            anchor = DrawingTransform::TopLeft;
-            break;
-        default:
-            anchor = DrawingTransform::Center;
-            break;
-    }
-    
-    // 🌟 2. 计算轴对齐边界框（AABB）- 使用当前状态下的边界框
+    // 计算组合对象的中心点
     QRectF totalBounds;
     for (DrawingShape *item : m_items) {
         if (item && item->parentItem() == this) {
-            // 获取每个子项的边界框并转换到组合对象坐标系
             QRectF itemBounds = item->boundingRect().translated(item->pos());
             QRectF transformedBounds = item->itemTransform(this).mapRect(itemBounds);
             if (totalBounds.isEmpty()) {
@@ -651,51 +611,13 @@ void DrawingGroup::applyScaleWithHandle(int handleType, const QPointF &initialHa
         return;
     }
     
-    // 🌟 3. 获取固定锚点位置（参考drawing-edit-handles的正确逻辑）
-    // 关键：直接从totalBounds计算锚点，确保使用轴对齐坐标
-    QPointF fixedAnchor;
-    switch (anchor) {
-        case DrawingTransform::TopLeft:
-            fixedAnchor = totalBounds.topLeft();
-            break;
-        case DrawingTransform::TopCenter:
-            fixedAnchor = QPointF(totalBounds.center().x(), totalBounds.top());
-            break;
-        case DrawingTransform::TopRight:
-            fixedAnchor = totalBounds.topRight();
-            break;
-        case DrawingTransform::CenterLeft:
-            fixedAnchor = QPointF(totalBounds.left(), totalBounds.center().y());
-            break;
-        case DrawingTransform::Center:
-            fixedAnchor = totalBounds.center();
-            break;
-        case DrawingTransform::CenterRight:
-            fixedAnchor = QPointF(totalBounds.right(), totalBounds.center().y());
-            break;
-        case DrawingTransform::BottomLeft:
-            fixedAnchor = totalBounds.bottomLeft();
-            break;
-        case DrawingTransform::BottomCenter:
-            fixedAnchor = QPointF(totalBounds.center().x(), totalBounds.bottom());
-            break;
-        case DrawingTransform::BottomRight:
-            fixedAnchor = totalBounds.bottomRight();
-            break;
-        default:
-            fixedAnchor = totalBounds.center();
-            break;
-    }
+    QPointF center = totalBounds.center();
+    QPointF centerScenePos = mapToScene(center);
     
-    // 将固定锚点转换为场景坐标
-    // 关键：使用当前变换后的锚点位置，确保锚点正确
-    QPointF anchorScenePos = mapToScene(fixedAnchor);
+    // 计算缩放因子
+    QPointF initialVec = initialHandlePos - centerScenePos;
+    QPointF currentVec = currentHandlePos - centerScenePos;
     
-    // 🌟 4. 计算相对于锚点的向量（关键步骤）
-    QPointF initialVec = initialHandlePos - anchorScenePos;
-    QPointF currentVec = currentHandlePos - anchorScenePos;
-    
-    // 🌟 5. 计算缩放因子
     double sx = 1.0, sy = 1.0;
     if (!qFuzzyIsNull(initialVec.x())) {
         sx = currentVec.x() / initialVec.x();
@@ -704,7 +626,7 @@ void DrawingGroup::applyScaleWithHandle(int handleType, const QPointF &initialHa
         sy = currentVec.y() / initialVec.y();
     }
     
-    // 🌟 6. 根据手柄类型限制缩放方向
+    // 根据手柄类型限制缩放方向
     switch (handleType) {
         case 2: // TopCenter
         case 7: // BottomCenter
@@ -714,50 +636,28 @@ void DrawingGroup::applyScaleWithHandle(int handleType, const QPointF &initialHa
         case 5: // CenterRight
             sy = 1.0; // 只水平缩放
             break;
-        case 1: // TopLeft
-        case 3: // TopRight
-        case 6: // BottomLeft
-        case 8: // BottomRight
-            // 角手柄：两个方向都缩放
-            break;
         default:
             break;
     }
     
-    // 🌟 7. 限制缩放范围
+    // 限制缩放范围
     sx = qBound(0.01, sx, 100.0);
     sy = qBound(0.01, sy, 100.0);
     
-    // 🌟 8. 为每个子项应用变换（完全模仿单个图形的正确逻辑）
-    for (DrawingShape *item : m_items) {
-        if (item && item->parentItem() == this) {
-            // 🌟 关键：使用DrawingTransform的scaleAroundAnchor方法，完全模仿单个图形的正确逻辑
-            // 基于当前变换状态，但使用DrawingTransform的专业处理
-            DrawingTransform baseTransform = m_currentTransforms.contains(item) ? 
-                                           DrawingTransform(m_currentTransforms[item]) : 
-                                           m_initialTransforms[item];
-            
-            // 🌟 关键：为每个子项计算相对于锚点的局部变换
-            // 将场景坐标中的锚点转换到每个子项的本地坐标系
-            QPointF anchorLocal = item->mapFromScene(anchorScenePos);
-            
-            // 创建缩放变换矩阵 - 使用相对于锚点的正确变换
-            QTransform scaleTransform;
-            scaleTransform.translate(anchorLocal.x(), anchorLocal.y());
-            scaleTransform.scale(sx, sy);
-            scaleTransform.translate(-anchorLocal.x(), -anchorLocal.y());
-            
-            // 应用到基础变换上
-            QTransform combinedTransform = scaleTransform * baseTransform.transform();
-            item->setTransform(DrawingTransform(combinedTransform));
-        }
-    }
+    // 将缩放应用到组合对象本身，而不是分别应用到每个子项
+    QTransform groupTransform = m_transform.transform();
+    QTransform scaleTransform;
+    scaleTransform.translate(center.x(), center.y());
+    scaleTransform.scale(sx, sy);
+    scaleTransform.translate(-center.x(), -center.y());
+    
+    setTransform(DrawingTransform(scaleTransform * groupTransform));
     
     // 更新几何
     prepareGeometryChange();
     update();
     
-    // 🌟 更新编辑手柄位置
+    // 更新编辑手柄位置
     if (editHandleManager()) {
         editHandleManager()->updateHandles();
     }
