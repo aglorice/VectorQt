@@ -141,7 +141,7 @@ void EditHandle::paint(QPainter *painter, const QStyleOptionGraphicsItem *option
 void EditHandle::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
-        qDebug() << "EditHandle::mousePressEvent called, handleType:" << handleType();
+        // qDebug() << "EditHandle::mousePressEvent called, handleType:" << handleType();
         
         // 获取父对象（可能是DrawingShape或SelectionLayer）
         auto parent = parentItem();
@@ -152,14 +152,14 @@ void EditHandle::mousePressEvent(QGraphicsSceneMouseEvent *event)
                        handleType() == CornerRadius || 
                        handleType() == SizeControl || 
                        handleType() == ArcControl)) {
-            qDebug() << "Starting drag for custom node handle, type:" << handleType();
+            // qDebug() << "Starting drag for custom node handle, type:" << handleType();
             startDrag(event->scenePos());
             event->accept();
             return;
         }
         
         if (!parent) {
-            qDebug() << "No parent item!";
+            // qDebug() << "No parent item!";
             QGraphicsItem::mousePressEvent(event);
             return;
         }
@@ -167,11 +167,11 @@ void EditHandle::mousePressEvent(QGraphicsSceneMouseEvent *event)
         SelectionLayer *selectionLayer = nullptr; // 直接设置为 nullptr，因为 parent 不再是 SelectionLayer
         DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(parent);
         
-        qDebug() << "Parent type - shape:" << (shape ? "yes" : "no") << "selectionLayer:" << (selectionLayer ? "yes" : "no");
+        // qDebug() << "Parent type - shape:" << (shape ? "yes" : "no") << "selectionLayer:" << (selectionLayer ? "yes" : "no");
         
         // 只处理 DrawingShape
         if (shape) {
-            qDebug() << "Calling startDrag for DrawingShape at position:" << event->scenePos();
+            // qDebug() << "Calling startDrag for DrawingShape at position:" << event->scenePos();
             startDrag(event->scenePos());
             event->accept();
             return;
@@ -197,7 +197,7 @@ void EditHandle::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
         
         // 检查父对象是否仍然存在
         if (!parentItem()) {
-            qDebug() << "Parent item deleted during drag!";
+            // qDebug() << "Parent item deleted during drag!";
             m_dragging = false;
             event->accept();
             return;
@@ -357,10 +357,10 @@ void EditHandleManager::createHandles()
     if (m_shape) {
         parent = m_shape;
         scene = m_shape->scene();
-        qDebug() << "Creating handles for DrawingShape:" << m_shape;
+        // qDebug() << "Creating handles for DrawingShape:" << m_shape;
         // 如果图形还没有添加到场景中，暂时不创建手柄
         if (!scene) {
-            qDebug() << "Shape not in scene, deferring handle creation";
+            // qDebug() << "Shape not in scene, deferring handle creation";
             return;
         }
     } else if (m_selectionLayer) {
@@ -371,20 +371,20 @@ void EditHandleManager::createHandles()
         } else {
             // 如果没有选中的图形，暂时不创建把手
             // 等到有图形被选中时再创建
-            qDebug() << "No selected shapes, deferring handle creation";
+            // qDebug() << "No selected shapes, deferring handle creation";
             return;
         }
-        qDebug() << "Creating handles for SelectionLayer, scene:" << scene;
+        // qDebug() << "Creating handles for SelectionLayer, scene:" << scene;
     }
     
     // 确保场景有效
     if (!scene && m_shape) {
-        qDebug() << "No valid scene for shape, cannot create handles";
+        // qDebug() << "No valid scene for shape, cannot create handles";
         return;
     }
     
     // 创建所有把手
-    qDebug() << "Creating handles, parent:" << parent << "scene:" << scene;
+    // qDebug() << "Creating handles, parent:" << parent << "scene:" << scene;
     m_handles.append(new EditHandle(EditHandle::TopLeft, parent));
     m_handles.append(new EditHandle(EditHandle::TopCenter, parent));
     m_handles.append(new EditHandle(EditHandle::TopRight, parent));
@@ -394,7 +394,7 @@ void EditHandleManager::createHandles()
     m_handles.append(new EditHandle(EditHandle::BottomCenter, parent));
     m_handles.append(new EditHandle(EditHandle::BottomRight, parent));
     m_handles.append(new EditHandle(EditHandle::Rotation, parent));
-    qDebug() << "Created" << m_handles.count() << "handles";
+    // qDebug() << "Created" << m_handles.count() << "handles";
     
     // 对于SelectionLayer的把手，需要手动添加到场景中
     if (m_selectionLayer && scene) {
@@ -427,7 +427,7 @@ void EditHandleManager::updateHandlePositions()
         
         // 安全检查：确保边界框有效
         if (shapeBounds.isNull() || shapeBounds.isEmpty()) {
-            qDebug() << "Invalid shape bounds for EditHandleManager::updateHandlePositions";
+            // qDebug() << "Invalid shape bounds for EditHandleManager::updateHandlePositions";
             return;
         }
         
@@ -609,7 +609,7 @@ static DrawingTransform::AnchorPoint getAnchorPointForHandle(EditHandle::HandleT
 // EditHandle拖动实现
 void EditHandle::startDrag(const QPointF &scenePos)
 {
-    qDebug() << "EditHandle::startDrag called at:" << scenePos << "handleType:" << handleType();
+    // qDebug() << "EditHandle::startDrag called at:" << scenePos << "handleType:" << handleType();
     
     m_dragging = true;
     m_dragStartPos = scenePos;
@@ -620,7 +620,7 @@ void EditHandle::startDrag(const QPointF &scenePos)
     
     if (!parent) {
         // 对于自定义节点手柄（没有父对象），只设置拖动状态
-        qDebug() << "Starting drag for custom node handle";
+        // qDebug() << "Starting drag for custom node handle";
         return;
     }
     
@@ -643,7 +643,7 @@ void EditHandle::startDrag(const QPointF &scenePos)
         m_originalTransform = shape->transform();
         m_originalRotation = m_originalTransform.rotation(); // 保存原始旋转角度
         
-        qDebug() << "StartDrag for DrawingShape, bounds:" << m_originalBounds;
+        // qDebug() << "StartDrag for DrawingShape, bounds:" << m_originalBounds;
     }
 }
 
@@ -887,17 +887,17 @@ void EditHandle::updateDragForShape(const QPointF &scenePos)
 
 void EditHandle::updateDragForSelectionLayer(const QPointF &scenePos)
 {
-    qDebug() << "updateDragForSelectionLayer called, handleType:" << handleType() << "scenePos:" << scenePos;
+    // qDebug() << "updateDragForSelectionLayer called, handleType:" << handleType() << "scenePos:" << scenePos;
     
     auto parent = parentItem();
     if (!parent) {
-        qDebug() << "No parent item found!";
+        // qDebug() << "No parent item found!";
         return;
     }
     
     SelectionLayer *selectionLayer = nullptr; // 直接设置为 nullptr，因为 parent 不再是 SelectionLayer
     if (!selectionLayer) {
-        qDebug() << "No selection layer found!";
+        // qDebug() << "No selection layer found!";
         return;
     }
     
@@ -1024,7 +1024,7 @@ void EditHandle::updateDragForSelectionLayer(const QPointF &scenePos)
     sx = qBound(minScale, sx, maxScale);
     sy = qBound(minScale, sy, maxScale);
     
-    qDebug() << "Applying scale - sx:" << sx << "sy:" << sy << "anchor:" << anchorScene << "handleIndex:" << handleIndex;
+    // qDebug() << "Applying scale - sx:" << sx << "sy:" << sy << "anchor:" << anchorScene << "handleIndex:" << handleIndex;
     
     // 应用缩放到选择层（使用新的变换系统）
     selectionLayer->scaleAroundAnchor(sx, sy, handleIndex, anchorScene);

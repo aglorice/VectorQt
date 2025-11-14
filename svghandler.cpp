@@ -29,7 +29,7 @@ static QHash<QString, QDomElement> s_markers;
 
 bool SvgHandler::importFromSvg(DrawingScene *scene, const QString &fileName)
 {
-    qDebug() << "开始导入SVG文件:" << fileName;
+    // qDebug() << "开始导入SVG文件:" << fileName;
     QFile file(fileName);
     if (!file.open(QIODevice::ReadOnly)) {
         qDebug() << "无法打开SVG文件:" << fileName;
@@ -47,10 +47,10 @@ bool SvgHandler::importFromSvg(DrawingScene *scene, const QString &fileName)
     }
     
     file.close();
-    qDebug() << "SVG文档解析成功，开始解析文档";
+    // qDebug() << "SVG文档解析成功，开始解析文档";
     
     bool result = parseSvgDocument(scene, doc);
-    qDebug() << "SVG导入完成，结果:" << result;
+    // qDebug() << "SVG导入完成，结果:" << result;
     return result;
 }
 
@@ -107,7 +107,7 @@ bool SvgHandler::parseSvgDocument(DrawingScene *scene, const QDomDocument &doc)
         }
     }
     
-    qDebug() << "总共解析了" << elementCount << "个元素";
+    // qDebug() << "总共解析了" << elementCount << "个元素";
     return elementCount > 0;
 }
 
@@ -147,23 +147,23 @@ DrawingShape* SvgHandler::parseSvgElement(const QDomElement &element)
             return nullptr;
         } else if (tagName == "use") {
             // TODO: 实现use元素支持
-            qDebug() << "暂不支持的元素:" << tagName;
+            // qDebug() << "暂不支持的元素:" << tagName;
             return nullptr;
         } else if (tagName == "image") {
             // TODO: 实现image元素支持
-            qDebug() << "暂不支持的元素:" << tagName;
+            // qDebug() << "暂不支持的元素:" << tagName;
             return nullptr;
         } else if (tagName == "clipPath" || tagName == "mask") {
             // TODO: 实现裁剪路径和蒙版支持
-            qDebug() << "暂不支持的元素:" << tagName;
+            // qDebug() << "暂不支持的元素:" << tagName;
             return nullptr;
         } else {
             // 记录未知的元素类型，但不崩溃
-            qDebug() << "未知的SVG元素:" << tagName;
+            // qDebug() << "未知的SVG元素:" << tagName;
             return nullptr;
         }
     } catch (...) {
-        qDebug() << "解析元素时发生异常:" << tagName;
+        // qDebug() << "解析元素时发生异常:" << tagName;
         return nullptr;
     }
 }
@@ -184,7 +184,7 @@ int SvgHandler::parseGroupElement(DrawingScene *scene, const QDomElement &groupE
         layer = new DrawingLayer(layerId);
         // TODO: 需要在 DrawingScene 中实现 addLayer 方法
         // scene->addLayer(layer);
-        qDebug() << "创建图层:" << layerId;
+        // qDebug() << "创建图层:" << layerId;
     } else {
         // 创建组合对象
         group = new DrawingGroup();
@@ -763,7 +763,7 @@ DrawingText* SvgHandler::parseTextElement(const QDomElement &element)
     // 获取文本内容
     QString text = element.text().trimmed();
     if (text.isEmpty()) {
-        qDebug() << "文本元素内容为空";
+        // qDebug() << "文本元素内容为空";
         return nullptr;
     }
     
@@ -804,7 +804,7 @@ DrawingText* SvgHandler::parseTextElement(const QDomElement &element)
         parseTransformAttribute(shape, transform);
     }
     
-    qDebug() << "解析文本元素:" << text << "位置:" << position;
+    // qDebug() << "解析文本元素:" << text << "位置:" << position;
     return shape;
 }
 
@@ -851,25 +851,25 @@ void SvgHandler::parseStyleAttributes(DrawingShape *shape, const QDomElement &el
                 shape->setFillBrush(brush);
                 
                 // 调试信息
-                qDebug() << "应用渐变填充:" << refId;
-                qDebug() << "渐变类型:" << gradient.type();
-                qDebug() << "渐变停止点数量:" << gradient.stops().count();
-                qDebug() << "坐标模式: ObjectBoundingMode";
+                // qDebug() << "应用渐变填充:" << refId;
+        // qDebug() << "渐变类型:" << gradient.type();
+        // qDebug() << "渐变停止点数量:" << gradient.stops().count();
+        // qDebug() << "坐标模式: ObjectBoundingMode";
                 
                 // 检查画刷是否有效
                 if (brush.style() == Qt::LinearGradientPattern || 
                     brush.style() == Qt::RadialGradientPattern ||
                     brush.style() == Qt::ConicalGradientPattern) {
-                    qDebug() << "画刷样式有效:" << brush.style();
+                    // qDebug() << "画刷样式有效:" << brush.style();
                 } else {
-                    qDebug() << "警告: 画刷样式无效:" << brush.style();
+                    // qDebug() << "警告: 画刷样式无效:" << brush.style();
                 }
             }
             // 然后检查是否是Pattern
             else if (s_patterns.contains(refId)) {
                 QBrush patternBrush = s_patterns[refId];
                 shape->setFillBrush(patternBrush);
-                qDebug() << "应用Pattern填充:" << refId;
+                // qDebug() << "应用Pattern填充:" << refId;
             }
         } else {
             QColor fillColor = parseColor(fill);
@@ -1039,14 +1039,14 @@ QColor SvgHandler::parseColor(const QString &colorStr)
         }
     } else if (colorStr.startsWith("rgba(")) {
         // 解析rgba(r,g,b,a)格式
-        QRegularExpression regex(R"(rgba\\s*\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*([\\d.]+)\\s*\\))");
+        QRegularExpression regex(R"(rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\))");
         QRegularExpressionMatch match = regex.match(colorStr);
         if (match.hasMatch()) {
             int r = match.captured(1).toInt();
             int g = match.captured(2).toInt();
             int b = match.captured(3).toInt();
-            qreal a = match.captured(4).toDouble() * 255; // 转换为0-255范围
-            return QColor(r, g, b, static_cast<int>(a));
+            qreal a = match.captured(4).toDouble(); // a是0-1范围的透明度值
+            return QColor(r, g, b, static_cast<int>(a * 255)); // 转换为0-255范围
         }
     }
     
@@ -1464,12 +1464,12 @@ void SvgHandler::parseDefsElements(const QDomElement &root)
     // 查找defs元素
     QDomNodeList defsNodes = root.elementsByTagName("defs");
     if (defsNodes.isEmpty()) {
-        qDebug() << "未找到defs元素";
+        // 静默返回，不显示警告信息，因为简单的SVG文件可能不需要defs元素
         return;
     }
     
     QDomElement defs = defsNodes.at(0).toElement();
-    qDebug() << "解析defs元素";
+    // qDebug() << "解析defs元素";
     
     // 清理之前的渐变定义
     s_gradients.clear();
@@ -1482,7 +1482,7 @@ void SvgHandler::parseDefsElements(const QDomElement &root)
         if (!id.isEmpty()) {
             QLinearGradient gradient = parseLinearGradient(element);
             s_gradients[id] = gradient;
-            qDebug() << "解析线性渐变:" << id;
+            // qDebug() << "解析线性渐变:" << id;
         }
     }
     
@@ -1494,7 +1494,7 @@ void SvgHandler::parseDefsElements(const QDomElement &root)
         if (!id.isEmpty()) {
             QRadialGradient gradient = parseRadialGradient(element);
             s_gradients[id] = gradient;
-            qDebug() << "解析径向渐变:" << id;
+            // qDebug() << "解析径向渐变:" << id;
         }
     }
 }
@@ -1534,7 +1534,7 @@ QLinearGradient SvgHandler::parseLinearGradient(const QDomElement &element)
         y2 = y2Str.toDouble();
     }
     
-    qDebug() << "线性渐变参数: x1=" << x1 << " y1=" << y1 << " x2=" << x2 << " y2=" << y2;
+    // qDebug() << "线性渐变参数: x1=" << x1 << " y1=" << y1 << " x2=" << x2 << " y2=" << y2;
     
     QLinearGradient gradient(QPointF(x1, y1), QPointF(x2, y2));
     
@@ -1543,12 +1543,12 @@ QLinearGradient SvgHandler::parseLinearGradient(const QDomElement &element)
     
     // 调试：检查渐变停止点
     auto stops = gradient.stops();
-    qDebug() << "渐变停止点数量:" << stops.count();
+    // qDebug() << "渐变停止点数量:" << stops.count();
     for (int i = 0; i < stops.count(); ++i) {
         auto stop = stops.at(i);
-        qDebug() << "停止点" << i << ": 位置=" << stop.first 
-                 << "颜色=" << stop.second.name() 
-                 << "透明度=" << stop.second.alphaF();
+        // qDebug() << "停止点" << i << ": 位置=" << stop.first 
+                 // << "颜色=" << stop.second.name() 
+                 // << "透明度=" << stop.second.alphaF();
     }
     
     return gradient;
@@ -1596,7 +1596,7 @@ QRadialGradient SvgHandler::parseRadialGradient(const QDomElement &element)
         fy = fyStr.toDouble();
     }
     
-    qDebug() << "径向渐变参数: cx=" << cx << " cy=" << cy << " r=" << r << " fx=" << fx << " fy=" << fy;
+    // qDebug() << "径向渐变参数: cx=" << cx << " cy=" << cy << " r=" << r << " fx=" << fx << " fy=" << fy;
     
     QRadialGradient gradient(QPointF(cx, cy), r, QPointF(fx, fy));
     
@@ -1605,12 +1605,12 @@ QRadialGradient SvgHandler::parseRadialGradient(const QDomElement &element)
     
     // 调试：检查渐变停止点
     auto stops = gradient.stops();
-    qDebug() << "渐变停止点数量:" << stops.count();
+    // qDebug() << "渐变停止点数量:" << stops.count();
     for (int i = 0; i < stops.count(); ++i) {
         auto stop = stops.at(i);
-        qDebug() << "停止点" << i << ": 位置=" << stop.first 
-                 << "颜色=" << stop.second.name() 
-                 << "透明度=" << stop.second.alphaF();
+        // qDebug() << "停止点" << i << ": 位置=" << stop.first 
+                 // << "颜色=" << stop.second.name() 
+                 // << "透明度=" << stop.second.alphaF();
     }
     
     return gradient;
@@ -1619,7 +1619,7 @@ QRadialGradient SvgHandler::parseRadialGradient(const QDomElement &element)
 void SvgHandler::parseGradientStops(QGradient *gradient, const QDomElement &element)
 {
     QDomNodeList stops = element.elementsByTagName("stop");
-    qDebug() << "解析" << stops.size() << "个停止点";
+    // qDebug() << "解析" << stops.size() << "个停止点";
     
     for (int i = 0; i < stops.size(); ++i) {
         QDomElement stop = stops.at(i).toElement();
@@ -1632,7 +1632,7 @@ void SvgHandler::parseGradientStops(QGradient *gradient, const QDomElement &elem
         } else {
             offset = offsetStr.toDouble();
         }
-        qDebug() << "停止点" << i << " offset=" << offsetStr << " -> " << offset;
+        // qDebug() << "停止点" << i << " offset=" << offsetStr << " -> " << offset;
         
         // 解析停止颜色 - 首先检查style属性
         QString stopColor;
@@ -1666,12 +1666,12 @@ void SvgHandler::parseGradientStops(QGradient *gradient, const QDomElement &elem
         }
         
         QColor color = parseColor(stopColor);
-        qDebug() << "停止点" << i << " stop-color=" << stopColor << " -> " << color.name();
+        // qDebug() << "停止点" << i << " stop-color=" << stopColor << " -> " << color.name();
         
         // 解析透明度
         qreal opacity = stopOpacity.toDouble();
         color.setAlphaF(opacity);
-        qDebug() << "停止点" << i << " stop-opacity=" << stopOpacity << " -> 透明度=" << color.alphaF();
+        // qDebug() << "停止点" << i << " stop-opacity=" << stopOpacity << " -> 透明度=" << color.alphaF();
         
         gradient->setColorAt(offset, color);
     }
@@ -1683,19 +1683,19 @@ void SvgHandler::parseFilterElements(const QDomElement &root)
     // 查找defs元素
     QDomNodeList defsNodes = root.elementsByTagName("defs");
     if (defsNodes.isEmpty()) {
-        qDebug() << "未找到defs元素，无法解析滤镜";
+        // 静默返回，不显示警告信息，因为简单的SVG文件可能不需要滤镜
         return;
     }
     
     QDomElement defs = defsNodes.at(0).toElement();
-    qDebug() << "解析滤镜元素";
+    // qDebug() << "解析滤镜元素";
     
     // 清理之前的滤镜定义
     for (auto it = s_filters.begin(); it != s_filters.end(); ++it) {
         delete it.value();
     }
     s_filters.clear();
-    qDebug() << "清理了" << s_filters.size() << "个滤镜定义";
+    // qDebug() << "清理了" << s_filters.size() << "个滤镜定义";
     
     // 解析所有滤镜
     QDomNodeList filters = defs.elementsByTagName("filter");
@@ -1721,7 +1721,7 @@ void SvgHandler::parseFilterElements(const QDomElement &root)
                     
                     if (effect) {
                         s_filters[id] = effect;
-                        qDebug() << "解析滤镜:" << id << "类型:" << tagName;
+                        // qDebug() << "解析滤镜:" << id << "类型:" << tagName;
                         break; // 一个滤镜只处理第一个原始元素
                     }
                 }
@@ -1739,7 +1739,7 @@ QGraphicsBlurEffect* SvgHandler::parseGaussianBlurFilter(const QDomElement &elem
     qreal radius = stdDeviation.toDouble();
     blur->setBlurRadius(radius);
     
-    qDebug() << "高斯模糊滤镜 - 半径:" << radius;
+    // qDebug() << "高斯模糊滤镜 - 半径:" << radius;
     return blur;
 }
 
@@ -1756,7 +1756,7 @@ QGraphicsDropShadowEffect* SvgHandler::parseDropShadowFilter(const QDomElement &
     shadow->setOffset(QPointF(offsetX, offsetY));
     shadow->setColor(QColor(63, 63, 63, 180)); // 默认半透明黑色
     
-    qDebug() << "阴影滤镜 - 模糊半径:" << blurRadius << "偏移:" << offsetX << "," << offsetY;
+    // qDebug() << "阴影滤镜 - 模糊半径:" << blurRadius << "偏移:" << offsetX << "," << offsetY;
     return shadow;
 }
 
@@ -1769,7 +1769,7 @@ void SvgHandler::applyFilterToShape(DrawingShape *shape, const QString &filterId
     if (s_filters.contains(filterId)) {
         QGraphicsEffect* effect = s_filters[filterId];
         if (!effect) {
-            qDebug() << "滤镜效果为空:" << filterId;
+            // qDebug() << "滤镜效果为空:" << filterId;
             return;
         }
         
@@ -1779,7 +1779,7 @@ void SvgHandler::applyFilterToShape(DrawingShape *shape, const QString &filterId
             if (newBlur) {
                 newBlur->setBlurRadius(blurEffect->blurRadius());
                 shape->setGraphicsEffect(newBlur);
-                qDebug() << "应用高斯模糊滤镜到图形:" << filterId << "半径:" << blurEffect->blurRadius();
+                // qDebug() << "应用高斯模糊滤镜到图形:" << filterId << "半径:" << blurEffect->blurRadius();
             }
         } else if (auto shadowEffect = qobject_cast<QGraphicsDropShadowEffect*>(effect)) {
             QGraphicsDropShadowEffect* newShadow = new QGraphicsDropShadowEffect();
@@ -1788,11 +1788,11 @@ void SvgHandler::applyFilterToShape(DrawingShape *shape, const QString &filterId
                 newShadow->setOffset(shadowEffect->offset());
                 newShadow->setColor(shadowEffect->color());
                 shape->setGraphicsEffect(newShadow);
-                qDebug() << "应用阴影滤镜到图形:" << filterId;
+                // qDebug() << "应用阴影滤镜到图形:" << filterId;
             }
         }
     } else {
-        qDebug() << "未找到滤镜:" << filterId;
+        // qDebug() << "未找到滤镜:" << filterId;
     }
 }
 
@@ -1805,7 +1805,7 @@ void SvgHandler::applyFilterToShape(DrawingGroup *group, const QString &filterId
     if (s_filters.contains(filterId)) {
         QGraphicsEffect* effect = s_filters[filterId];
         if (!effect) {
-            qDebug() << "滤镜效果为空:" << filterId;
+            // qDebug() << "滤镜效果为空:" << filterId;
             return;
         }
         
@@ -1815,7 +1815,7 @@ void SvgHandler::applyFilterToShape(DrawingGroup *group, const QString &filterId
             if (newBlur) {
                 newBlur->setBlurRadius(blurEffect->blurRadius());
                 group->setGraphicsEffect(newBlur);
-                qDebug() << "应用高斯模糊滤镜到组合:" << filterId << "半径:" << blurEffect->blurRadius();
+                // qDebug() << "应用高斯模糊滤镜到组合:" << filterId << "半径:" << blurEffect->blurRadius();
             }
         } else if (auto shadowEffect = qobject_cast<QGraphicsDropShadowEffect*>(effect)) {
             QGraphicsDropShadowEffect* newShadow = new QGraphicsDropShadowEffect();
@@ -1824,11 +1824,11 @@ void SvgHandler::applyFilterToShape(DrawingGroup *group, const QString &filterId
                 newShadow->setOffset(shadowEffect->offset());
                 newShadow->setColor(shadowEffect->color());
                 group->setGraphicsEffect(newShadow);
-                qDebug() << "应用阴影滤镜到组合:" << filterId;
+                // qDebug() << "应用阴影滤镜到组合:" << filterId;
             }
         }
     } else {
-        qDebug() << "未找到滤镜:" << filterId;
+        // qDebug() << "未找到滤镜:" << filterId;
     }
 }
 
@@ -1838,12 +1838,12 @@ void SvgHandler::parsePatternElements(const QDomElement &root)
     // 查找defs元素
     QDomNodeList defsNodes = root.elementsByTagName("defs");
     if (defsNodes.isEmpty()) {
-        qDebug() << "未找到defs元素，无法解析Pattern";
+        // 静默返回，不显示警告信息，因为简单的SVG文件可能不需要Pattern
         return;
     }
     
     QDomElement defs = defsNodes.at(0).toElement();
-    qDebug() << "解析Pattern元素";
+    // qDebug() << "解析Pattern元素";
     
     // 清理之前的Pattern定义
     s_patterns.clear();
@@ -1857,7 +1857,7 @@ void SvgHandler::parsePatternElements(const QDomElement &root)
             // 简化实现：创建一个简单的纹理Pattern
             QBrush patternBrush = parsePatternBrush(id);
             s_patterns[id] = patternBrush;
-            qDebug() << "解析Pattern:" << id;
+            // qDebug() << "解析Pattern:" << id;
         }
     }
 }
@@ -1889,12 +1889,12 @@ void SvgHandler::parseMarkerElements(const QDomElement &root)
     // 查找defs元素
     QDomNodeList defsNodes = root.elementsByTagName("defs");
     if (defsNodes.isEmpty()) {
-        qDebug() << "未找到defs元素，无法解析Marker";
+        // 静默返回，不显示警告信息，因为简单的SVG文件可能不需要Marker
         return;
     }
     
     QDomElement defs = defsNodes.at(0).toElement();
-    qDebug() << "解析Marker元素";
+    // qDebug() << "解析Marker元素";
     
     // 清理之前的Marker定义
     s_markers.clear();
@@ -1906,7 +1906,7 @@ void SvgHandler::parseMarkerElements(const QDomElement &root)
         QString id = markerElement.attribute("id");
         if (!id.isEmpty()) {
             s_markers[id] = markerElement;
-            qDebug() << "解析Marker:" << id;
+            // qDebug() << "解析Marker:" << id;
         }
     }
 }
@@ -1920,9 +1920,9 @@ void SvgHandler::applyMarkerToPath(DrawingPath *path, const QString &markerId)
     if (s_markers.contains(markerId)) {
         QDomElement markerElement = s_markers[markerId];
         // TODO: 实现Marker应用到路径的逻辑
-        qDebug() << "应用Marker到路径:" << markerId;
+        // qDebug() << "应用Marker到路径:" << markerId;
     } else {
-        qDebug() << "未找到Marker:" << markerId;
+        // qDebug() << "未找到Marker:" << markerId;
     }
 }
 

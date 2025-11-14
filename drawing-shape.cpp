@@ -167,7 +167,7 @@ void DrawingShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
         painter->drawRect(bounds);
         
         // 绘制选择手柄（角落的小方块）
-        qreal handleSize = 8.0;
+        qreal handleSize = 4.0;
         painter->setPen(QPen(Qt::blue, 1));
         painter->setBrush(QBrush(Qt::white));
         
@@ -188,18 +188,18 @@ void DrawingShape::setEditHandlesEnabled(bool enabled)
     m_editHandlesEnabled = enabled;
     
     if (enabled) {
-        qDebug() << "Enabling edit handles for shape:" << this << "type:" << type() << "in scene:" << (scene() ? "yes" : "no");
+        // qDebug() << "Enabling edit handles for shape:" << this << "type:" << type() << "in scene:" << (scene() ? "yes" : "no");
         
         // 确保图形已在场景中
         if (!scene()) {
-            qDebug() << "Shape not in scene, deferring edit handles";
+            // qDebug() << "Shape not in scene, deferring edit handles";
             return;
         }
         
         // 创建编辑把手管理器
         if (!m_handleManager) {
             m_handleManager = new EditHandleManager(this);
-            qDebug() << "Created EditHandleManager for shape:" << this;
+            // qDebug() << "Created EditHandleManager for shape:" << this;
         }
         
         // 显示编辑把手
@@ -208,9 +208,9 @@ void DrawingShape::setEditHandlesEnabled(bool enabled)
             m_handleManager->showHandles();   // 再显示把手
         }
         
-        qDebug() << "Edit handles enabled, handle count:" << (m_handleManager ? m_handleManager->handles().count() : 0);
+        // qDebug() << "Edit handles enabled, handle count:" << (m_handleManager ? m_handleManager->handles().count() : 0);
     } else {
-        qDebug() << "Disabling edit handles for shape:" << this << "type:" << type();
+        // qDebug() << "Disabling edit handles for shape:" << this << "type:" << type();
         
         // 隐藏编辑把手
         if (m_handleManager) {
@@ -1321,7 +1321,7 @@ void DrawingLine::paintShape(QPainter *painter)
 DrawingPolyline::DrawingPolyline(QGraphicsItem *parent)
     : DrawingShape(Polyline, parent)
 {
-    qDebug() << "DrawingPolyline::DrawingPolyline - m_closed initialized to:" << m_closed;
+    // qDebug() << "DrawingPolyline::DrawingPolyline - m_closed initialized to:" << m_closed;
     setFlag(QGraphicsItem::ItemIsSelectable, true);
     setFlag(QGraphicsItem::ItemIsMovable, true);
 }
@@ -1501,13 +1501,13 @@ void DrawingPolyline::paintShape(QPainter *painter)
     
     // 如果明确标记为闭合，则绘制闭合线
     if (m_closed && m_points.size() > 2) {
-        qDebug() << "DrawingPolyline: Warning - polyline is marked as closed!";
-        qDebug() << "  Points count:" << m_points.size();
-        qDebug() << "  Is selected:" << isSelected();
-        qDebug() << "  Current tool:" << (scene() && scene()->views().size() > 0 ? 
-            (qobject_cast<DrawingView*>(scene()->views().first()) ? 
-                QString::fromUtf8(qobject_cast<DrawingView*>(scene()->views().first())->currentTool()->metaObject()->className()) : 
-                "Unknown") : "No view");
+        // qDebug() << "DrawingPolyline: Warning - polyline is marked as closed!";
+        // qDebug() << "  Points count:" << m_points.size();
+        // qDebug() << "  Is selected:" << isSelected();
+        // qDebug() << "  Current tool:" << (scene() && scene()->views().size() > 0 ? 
+        //     (qobject_cast<DrawingView*>(scene()->views().first()) ? 
+        //         QString::fromUtf8(qobject_cast<DrawingView*>(scene()->views().first())->currentTool()->metaObject()->className()) : 
+        //         "Unknown") : "No view");
         // 绘制闭合线
         painter->drawLine(m_points.last(), m_points.first());
         painter->setBrush(fillBrush());

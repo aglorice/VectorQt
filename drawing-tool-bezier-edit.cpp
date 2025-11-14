@@ -30,7 +30,7 @@ bool DrawingBezierEditTool::mousePressEvent(QMouseEvent *event, const QPointF &s
                 m_isDragging = true;
                 m_originalControlPoints = m_selectedPath->controlPoints();
                 
-                qDebug() << "Started dragging control point handle";
+                // qDebug() << "Started dragging control point handle";
                 return true;
             }
         }

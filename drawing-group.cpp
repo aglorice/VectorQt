@@ -169,7 +169,7 @@ QPainterPath DrawingGroup::shape() const
 
 void DrawingGroup::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-    qDebug() << "DrawingGroup::mousePressEvent called on" << this;
+    // qDebug() << "DrawingGroup::mousePressEvent called on" << this;
     
     // 左键自动选中
     if (event->button() == Qt::LeftButton) {

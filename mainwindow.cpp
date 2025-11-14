@@ -56,7 +56,7 @@ MainWindow::MainWindow(QWidget *parent)
     // Create initial scene
     newFile();
 
-    qDebug() << "MainWindow initialized, default tool already set";
+    // qDebug() << "MainWindow initialized, default tool already set";
     
     // Setup color palette
     m_colorPalette = new ColorPalette(this);
@@ -182,7 +182,7 @@ void MainWindow::setupUI()
         m_verticalRuler->setOrigin(origin.y());
         m_horizontalRuler->setScale(m_canvas->view()->zoomLevel());
         m_verticalRuler->setScale(m_canvas->view()->zoomLevel());
-        qDebug() << "Initial ruler setup - origin:" << origin << "zoom:" << m_canvas->view()->zoomLevel();
+        // qDebug() << "Initial ruler setup - origin:" << origin << "zoom:" << m_canvas->view()->zoomLevel();
     }
 
     // Connect unit change signals to keep both rulers synchronized
@@ -912,11 +912,11 @@ void MainWindow::connectActions()
 
 void MainWindow::setCurrentTool(ToolBase *tool)
 {
-    qDebug() << "setCurrentTool called with tool:" << tool;
+    // qDebug() << "setCurrentTool called with tool:" << tool;
 
     if (m_currentTool)
     {
-        qDebug() << "Deactivating current tool:" << m_currentTool;
+        // qDebug() << "Deactivating current tool:" << m_currentTool;
         m_currentTool->deactivate();
     }
 
@@ -924,7 +924,7 @@ void MainWindow::setCurrentTool(ToolBase *tool)
 
     if (m_currentTool)
     {
-        qDebug() << "Activating new tool:" << m_currentTool;
+        // qDebug() << "Activating new tool:" << m_currentTool;
         DrawingView *drawingView = qobject_cast<DrawingView *>(m_canvas->view());
         m_currentTool->activate(m_scene, drawingView);
         if (drawingView)
@@ -1558,7 +1558,7 @@ void MainWindow::groupSelected()
     if (!m_scene) return;
     
     QList<QGraphicsItem *> selected = m_scene->selectedItems();
-    qDebug() << "groupSelected: selected items count:" << selected.size();
+    // qDebug() << "groupSelected: selected items count:" << selected.size();
     
     if (selected.size() < 2) {
         // 如果没有选中足够多的项目，给出提示
@@ -1592,7 +1592,7 @@ void MainWindow::groupSelected()
     
     // 创建自定义的DrawingGroup
     DrawingGroup *group = new DrawingGroup();
-    qDebug() << "groupSelected: created DrawingGroup at" << group;
+    // qDebug() << "groupSelected: created DrawingGroup at" << group;
     
     // 设置组的标志，确保它可以被选中和移动
     group->setFlags(QGraphicsItem::ItemIsMovable | 
@@ -1605,8 +1605,8 @@ void MainWindow::groupSelected()
     // 🌟 先设置组合对象的位置到中心点
     group->setPos(center);
     
-    qDebug() << "groupSelected: total shapes to group:" << shapesToGroup.size();
-    qDebug() << "groupSelected: group position set to center" << center;
+    // qDebug() << "groupSelected: total shapes to group:" << shapesToGroup.size();
+    // qDebug() << "groupSelected: group position set to center" << center;
     
     // 将组添加到场景中
     m_scene->addItem(group);
@@ -1616,12 +1616,12 @@ void MainWindow::groupSelected()
         DrawingShape *shape = shapesToGroup[i];
         group->addItem(shape);
     }
-    qDebug() << "groupSelected: added group to scene, group type:" << group->type();
+    // qDebug() << "groupSelected: added group to scene, group type:" << group->type();
     
     // 清除之前的选择，并选中新的组合
     m_scene->clearSelection();
     group->setSelected(true);
-    qDebug() << "groupSelected: group selected, group isSelected:" << group->isSelected();
+    // qDebug() << "groupSelected: group selected, group isSelected:" << group->isSelected();
     
     // 标记场景已修改
     m_scene->setModified(true);
@@ -1634,7 +1634,7 @@ void MainWindow::ungroupSelected()
     if (!m_scene) return;
     
     QList<QGraphicsItem *> selected = m_scene->selectedItems();
-    qDebug() << "ungroupSelected: selected items count:" << selected.size();
+    // qDebug() << "ungroupSelected: selected items count:" << selected.size();
     
     if (selected.isEmpty()) {
         m_statusLabel->setText("没有选中的项目");
@@ -1646,14 +1646,14 @@ void MainWindow::ungroupSelected()
     // 创建一个临时列表来存储要取消组合的组
     QList<DrawingGroup*> groupsToUngroup;
     for (QGraphicsItem *item : selected) {
-        qDebug() << "ungroupSelected: checking item:" << item << "type:" << (item ? item->type() : -1);
+        // qDebug() << "ungroupSelected: checking item:" << item << "type:" << (item ? item->type() : -1);
         // 使用类型检查而不是qgraphicsitem_cast
         if (item && item->type() == QGraphicsItem::UserType + 1) {
             DrawingShape *shape = static_cast<DrawingShape*>(item);
             if (shape && shape->shapeType() == DrawingShape::Group) {
                 DrawingGroup *group = static_cast<DrawingGroup*>(item);
                 groupsToUngroup.append(group);
-                qDebug() << "ungroupSelected: found DrawingGroup:" << group;
+                // qDebug() << "ungroupSelected: found DrawingGroup:" << group;
             }
         }
     }
@@ -1862,12 +1862,12 @@ void MainWindow::updateUI()
         
         // 检查是否有选中的组
         for (QGraphicsItem *item : selected) {
-            qDebug() << "updateSelection: checking item" << item << "type:" << (item ? item->type() : -1);
+            // qDebug() << "updateSelection: checking item" << item << "type:" << (item ? item->type() : -1);
             // 使用类型检查而不是qgraphicsitem_cast
         if (item && item->type() == QGraphicsItem::UserType + 1) {
             DrawingShape *shape = static_cast<DrawingShape*>(item);
             if (shape && shape->shapeType() == DrawingShape::Group) {
-                qDebug() << "updateSelection: found DrawingGroup:" << item;
+                // qDebug() << "updateSelection: found DrawingGroup:" << item;
                 hasGroupSelection = true;
                 break;
             }

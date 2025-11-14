@@ -59,6 +59,16 @@ public:
     static QPainterPath clipPath(const QPainterPath &path, const QRectF &clipRect);
     static QPainterPath clipPath(const QPainterPath &path, const QPainterPath &clipPath);
     
+    // 简化的几何功能
+    static QPainterPath convexHull(const QPainterPath &path);
+    static QPainterPath buffer(const QPainterPath &path, double distance);
+    static double distance(const QPainterPath &path1, const QPainterPath &path2);
+    static double area(const QPainterPath &path);
+    static double perimeter(const QPainterPath &path);
+    static QPointF centroid(const QPainterPath &path);
+    static QList<QPointF> intersections(const QPainterPath &path1, const QPainterPath &path2);
+    static bool isBoostGeometryAvailable();
+    
     // 高级功能
     static QPainterPath createArrow(const QPointF &start, const QPointF &end, qreal headLength = 10);
     static QPainterPath createStar(const QPointF &center, qreal radius, int points = 5);

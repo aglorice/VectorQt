@@ -113,7 +113,7 @@ void DrawingScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
     
     // 如果点击空白区域且有选择，清除所有选择
     if (clickedOnEmpty) {
-        qDebug() << "Clicked on empty area, clearing selection";
+        // qDebug() << "Clicked on empty area, clearing selection";
         clearSelection();
     }
     
@@ -161,7 +161,7 @@ void DrawingScene::updateSelection()
     QList<QGraphicsItem*> selected = selectedItems();
     QList<DrawingShape*> selectedShapes;
     
-    qDebug() << "updateSelection called, total selected items:" << selected.count();
+    // qDebug() << "updateSelection called, total selected items:" << selected.count();
     
     // 只收集选中的DrawingShape对象，忽略QGraphicsItemGroup和DrawingLayer
     for (QGraphicsItem *item : selected) {
@@ -169,7 +169,7 @@ void DrawingScene::updateSelection()
         
         // 检查是否是DrawingLayer，如果是则跳过
         if (item->type() == QGraphicsItem::UserType + 100) {
-            qDebug() << "Skipping DrawingLayer item in selection";
+            // qDebug() << "Skipping DrawingLayer item in selection";
             continue;
         }
         
@@ -180,13 +180,13 @@ void DrawingScene::updateSelection()
             // 额外检查对象是否有效且在场景中
             if (shape->scene() == this) {
                 selectedShapes.append(shape);
-                qDebug() << "Found selected shape:" << shape;
+                // qDebug() << "Found selected shape:" << shape;
             }
         }
         // QGraphicsItemGroup和DrawingLayer不需要特殊的编辑手柄，所以不处理
     }
     
-    qDebug() << "Total DrawingShape objects selected:" << selectedShapes.count();
+    // qDebug() << "Total DrawingShape objects selected:" << selectedShapes.count();
     
     // 禁用所有未选中图形的编辑把手
     QList<QGraphicsItem*> allItems = items();
@@ -222,13 +222,13 @@ void DrawingScene::updateSelection()
 
 void DrawingScene::activateSelectionTool()
 {
-    qDebug() << "activateSelectionTool called";
+    // qDebug() << "activateSelectionTool called";
     // 只在选择工具激活时连接选择变化信号
     if (!signalsBlocked()) {
         // 断开已存在的连接（如果有的话）
         disconnect(this, &DrawingScene::selectionChanged, this, &DrawingScene::onSelectionChanged);
         
-        qDebug() << "Connecting selectionChanged signal";
+        // qDebug() << "Connecting selectionChanged signal";
         connect(this, &DrawingScene::selectionChanged, this, &DrawingScene::onSelectionChanged);
         
         // 立即更新一次选择状态
@@ -448,7 +448,7 @@ bool DrawingScene::isGridAlignmentEnabled() const
 
 void DrawingScene::onSelectionChanged()
 {
-    qDebug() << "onSelectionChanged called";
+    // qDebug() << "onSelectionChanged called";
     // 直接更新选择
     updateSelection();
 }

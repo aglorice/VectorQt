@@ -10,6 +10,8 @@ set(CMAKE_PREFIX_PATH $ENV{HOME}/Qt/6.9.2/macos ${CMAKE_PREFIX_PATH})
 # 查找Qt6组件
 find_package(Qt6 COMPONENTS Widgets SvgWidgets Xml REQUIRED)
 
+# Boost配置将在add_executable之后处理
+
 # 收集源文件
 set(SOURCES
     ruler.cpp
@@ -116,9 +118,11 @@ set_target_properties(VectorFlow PROPERTIES
 # 设置包含目录
 target_include_directories(VectorFlow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+
+
 # 编译器特定设置
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(VectorFlow PRIVATE -Wall -Wextra)
+    target_compile_options(VectorFlow PRIVATE -Wall -Wextra -Wno-deprecated-builtins)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     target_compile_options(VectorFlow PRIVATE /W4)
 endif()

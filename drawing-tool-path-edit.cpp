@@ -70,7 +70,7 @@ bool DrawingToolPathEdit::mousePressEvent(QMouseEvent *event, const QPointF &sce
         return false;
     } else if (event->button() == Qt::RightButton && m_scene) {
         // 右键显示上下文菜单
-        qDebug() << "Right click, showing context menu";
+        // qDebug() << "Right click, showing context menu";
         
         // 更新选择列表为当前场景选中的对象
         updateSelectedPathsFromScene();
@@ -100,7 +100,7 @@ bool DrawingToolPathEdit::mouseReleaseEvent(QMouseEvent *event, const QPointF &s
 
 void DrawingToolPathEdit::executePathOperation()
 {
-    qDebug() << "executePathOperation called, selectedPaths count:" << m_selectedPaths.size();
+    // qDebug() << "executePathOperation called, selectedPaths count:" << m_selectedPaths.size();
     
     if (m_selectedPaths.size() < 2) {
         // 显示用户友好的提示
@@ -122,7 +122,7 @@ void DrawingToolPathEdit::executePathOperation()
         return;
     }
     
-    qDebug() << "Shape1 valid:" << (shape1 != nullptr) << "Shape2 valid:" << (shape2 != nullptr);
+    // qDebug() << "Shape1 valid:" << (shape1 != nullptr) << "Shape2 valid:" << (shape2 != nullptr);
     
     // 确保形状在场景中
     if (!m_scene->items().contains(shape1) || !m_scene->items().contains(shape2)) {
@@ -137,10 +137,10 @@ void DrawingToolPathEdit::executePathOperation()
         QPointF pos1 = shape1->pos();
         QPointF pos2 = shape2->pos();
         
-        qDebug() << "=== 布尔运算调试信息 ===";
-        qDebug() << "Shape1 pos:" << pos1 << "Shape2 pos:" << pos2;
-        qDebug() << "Shape1 boundingRect:" << shape1->boundingRect();
-        qDebug() << "Shape2 boundingRect:" << shape2->boundingRect();
+        // qDebug() << "=== 布尔运算调试信息 ===";
+        // qDebug() << "Shape1 pos:" << pos1 << "Shape2 pos:" << pos2;
+        // qDebug() << "Shape1 boundingRect:" << shape1->boundingRect();
+        // qDebug() << "Shape2 boundingRect:" << shape2->boundingRect();
         
         // 获取基础路径（不包含位置）
         QPainterPath path1Base = shape1->transformedShape();
@@ -159,25 +159,25 @@ void DrawingToolPathEdit::executePathOperation()
         transform2.translate(pos2.x(), pos2.y());
         path2WithPos = transform2.map(path2Base);
         
-        qDebug() << "Path1 transformed boundingRect:" << path1WithPos.boundingRect();
-        qDebug() << "Path2 transformed boundingRect:" << path2WithPos.boundingRect();
-        qDebug() << "Path1 elementCount:" << path1WithPos.elementCount();
-        qDebug() << "Path2 elementCount:" << path2WithPos.elementCount();
+        // qDebug() << "Path1 transformed boundingRect:" << path1WithPos.boundingRect();
+        // qDebug() << "Path2 transformed boundingRect:" << path2WithPos.boundingRect();
+        // qDebug() << "Path1 elementCount:" << path1WithPos.elementCount();
+        // qDebug() << "Path2 elementCount:" << path2WithPos.elementCount();
         
         // 检查路径是否真的相交
         QRectF bounds1 = path1WithPos.boundingRect();
         QRectF bounds2 = path2WithPos.boundingRect();
-        qDebug() << "Bounds intersect:" << bounds1.intersects(bounds2);
-        qDebug() << "Intersection rect:" << bounds1.intersected(bounds2);
+        // qDebug() << "Bounds intersect:" << bounds1.intersects(bounds2);
+        // qDebug() << "Intersection rect:" << bounds1.intersected(bounds2);
         
         result = PathEditor::booleanOperation(
             path1WithPos, 
             path2WithPos, 
             m_booleanOp
         );
-        qDebug() << "Boolean operation completed";
-        qDebug() << "Result boundingRect:" << result.boundingRect();
-        qDebug() << "Result elementCount:" << result.elementCount();
+        // qDebug() << "Boolean operation completed";
+        // qDebug() << "Result boundingRect:" << result.boundingRect();
+        // qDebug() << "Result elementCount:" << result.elementCount();
     } catch (...) {
         qDebug() << "布尔运算异常";
         return;
@@ -189,7 +189,7 @@ void DrawingToolPathEdit::executePathOperation()
         return;
     }
     
-    qDebug() << "Creating new path";
+    // qDebug() << "Creating new path";
     
     // 创建新的路径对象
     DrawingPath *newPath = nullptr;
@@ -200,13 +200,13 @@ void DrawingToolPathEdit::executePathOperation()
         QRectF bounds1 = shape1->boundingRect();
         QRectF bounds2 = shape2->boundingRect();
         
-        qDebug() << "Original bounds1:" << bounds1;
-        qDebug() << "Original bounds2:" << bounds2;
-        qDebug() << "Result elementCount:" << result.elementCount();
+        // qDebug() << "Original bounds1:" << bounds1;
+        // qDebug() << "Original bounds2:" << bounds2;
+        // qDebug() << "Result elementCount:" << result.elementCount();
         
         // 计算结果路径的边界框
         QRectF resultBounds = result.boundingRect();
-        qDebug() << "Result bounds:" << resultBounds;
+        // qDebug() << "Result bounds:" << resultBounds;
         
         // 布尔运算的结果已经包含了正确的位置信息
         // 我们需要将结果路径转换为相对于图形原点的路径
@@ -228,9 +228,9 @@ void DrawingToolPathEdit::executePathOperation()
         newPath->setStrokePen(shape1->strokePen());
         newPath->setFillBrush(shape1->fillBrush());
         
-        qDebug() << "New path created successfully";
-        qDebug() << "New path bounds after setting:" << newPath->boundingRect();
-        qDebug() << "New path position:" << newPath->pos();
+        // qDebug() << "New path created successfully";
+        // qDebug() << "New path bounds after setting:" << newPath->boundingRect();
+        // qDebug() << "New path position:" << newPath->pos();
     } catch (...) {
         qDebug() << "创建新路径失败";
         if (newPath) {
@@ -251,7 +251,7 @@ void DrawingToolPathEdit::executePathOperation()
     }
     
     // 先从场景中移除原始形状
-    qDebug() << "Removing original shapes";
+    // qDebug() << "Removing original shapes";
     if (shape1 && m_scene->items().contains(shape1)) {
         m_scene->removeItem(shape1);
     }
@@ -260,13 +260,13 @@ void DrawingToolPathEdit::executePathOperation()
     }
     
     // 添加新路径到场景
-    qDebug() << "Adding new path to scene";
+    // qDebug() << "Adding new path to scene";
     if (newPath && m_scene) {
         m_scene->addItem(newPath);
     }
     
     // 安全删除原始形状 - 先从场景中移除再删除
-    qDebug() << "Deleting original shapes";
+    // qDebug() << "Deleting original shapes";
     if (shape1) {
         shape1->setSelected(false);
         if (m_scene && m_scene->items().contains(shape1)) {
@@ -293,7 +293,7 @@ void DrawingToolPathEdit::executePathOperation()
         newPath->setSelected(true);
     }
     
-    qDebug() << "Path operation completed successfully";
+    // qDebug() << "Path operation completed successfully";
     m_scene->setModified(true);
 }
 

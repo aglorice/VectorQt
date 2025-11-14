@@ -405,7 +405,7 @@ public:
     
     // 闭合属性
     void setClosed(bool closed) { 
-        qDebug() << "DrawingPolyline::setClosed called with:" << closed << "from" << m_closed;
+        // qDebug() << "DrawingPolyline::setClosed called with:" << closed << "from" << m_closed;
         m_closed = closed; 
         update(); 
     }

@@ -144,7 +144,7 @@ void DrawingLayer::parseFromSvg(const QDomElement &element)
         // TODO: 解析SVG变换字符串
     }
     
-    qDebug() << "解析图层:" << m_name << "透明度:" << m_opacity << "可见:" << m_visible;
+    // qDebug() << "解析图层:" << m_name << "透明度:" << m_opacity << "可见:" << m_visible;
 }
 
 QDomElement DrawingLayer::exportToSvg(QDomDocument &doc) const

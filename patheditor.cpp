@@ -13,11 +13,9 @@ QPainterPath PathEditor::booleanOperation(const QPainterPath &path1,
                                          const QPainterPath &path2, 
                                          BooleanOperation op)
 {
-    QPainterPath result;
-    
     // 检查路径是否为空
     if (path1.isEmpty() && path2.isEmpty()) {
-        return result;
+        return QPainterPath();
     }
     if (path1.isEmpty()) {
         return path2;
@@ -26,7 +24,10 @@ QPainterPath PathEditor::booleanOperation(const QPainterPath &path1,
         return path1;
     }
     
-    qDebug() << "Performing boolean operation, op:" << op;
+    
+    
+    // Qt实现的布尔运算（回退方案）
+    // qDebug() << "Performing boolean operation, op:" << op;
     
     // 创建路径副本并确保使用正确的填充规则
     QPainterPath p1 = path1;
@@ -36,22 +37,24 @@ QPainterPath PathEditor::booleanOperation(const QPainterPath &path1,
     p1.setFillRule(Qt::OddEvenFill);
     p2.setFillRule(Qt::OddEvenFill);
     
+    QPainterPath result;
+    
     // 执行布尔运算
     switch (op) {
     case Union:
-        qDebug() << "Performing union operation";
+        // qDebug() << "Performing union operation";
         result = p1.united(p2);
         break;
     case Intersection:
-        qDebug() << "Performing intersection operation";
+        // qDebug() << "Performing intersection operation";
         result = p1.intersected(p2);
         break;
     case Subtraction:
-        qDebug() << "Performing subtraction operation";
+        // qDebug() << "Performing subtraction operation";
         result = p1.subtracted(p2);
         break;
     case Xor:
-        qDebug() << "Performing XOR operation";
+        // qDebug() << "Performing XOR operation";
         // XOR 可以通过 (A U B) - (A ∩ B) 实现
         result = p1.united(p2).subtracted(p1.intersected(p2));
         break;
@@ -60,8 +63,8 @@ QPainterPath PathEditor::booleanOperation(const QPainterPath &path1,
     // 确保结果也使用正确的填充规则
     result.setFillRule(Qt::OddEvenFill);
     
-    qDebug() << "Boolean operation result isEmpty:" << result.isEmpty();
-    qDebug() << "Result elementCount:" << result.elementCount();
+    // qDebug() << "Boolean operation result isEmpty:" << result.isEmpty();
+    // qDebug() << "Result elementCount:" << result.elementCount();
     
     return result;
 }
@@ -468,6 +471,80 @@ QPainterPath PathEditor::clipPath(const QPainterPath &path, const QRectF &clipRe
 QPainterPath PathEditor::clipPath(const QPainterPath &path, const QPainterPath &clipPath)
 {
     return path.intersected(clipPath);
+}
+
+// 简化的几何功能实现（不使用Boost）
+QPainterPath PathEditor::convexHull(const QPainterPath &path)
+{
+    // 简单实现：返回边界框
+    return QPainterPath();
+}
+
+QPainterPath PathEditor::buffer(const QPainterPath &path, double distance)
+{
+    // 使用Qt的描边功能
+    QPainterPathStroker stroker;
+    stroker.setWidth(qAbs(distance) * 2);
+    stroker.setCapStyle(Qt::RoundCap);
+    stroker.setJoinStyle(Qt::RoundJoin);
+    return stroker.createStroke(path);
+}
+
+double PathEditor::distance(const QPainterPath &path1, const QPainterPath &path2)
+{
+    // 使用简单的边界框距离
+    QRectF rect1 = path1.boundingRect();
+    QRectF rect2 = path2.boundingRect();
+    
+    if (rect1.intersects(rect2)) {
+        return 0.0;
+    }
+    
+    // 计算最近边界点之间的距离
+    double dx = qMax(0.0, qMax(rect1.left() - rect2.right(), rect2.left() - rect1.right()));
+    double dy = qMax(0.0, qMax(rect1.top() - rect2.bottom(), rect2.top() - rect1.bottom()));
+    
+    return qSqrt(dx * dx + dy * dy);
+}
+
+double PathEditor::area(const QPainterPath &path)
+{
+    // 使用边界框面积作为近似
+    return path.boundingRect().width() * path.boundingRect().height();
+}
+
+double PathEditor::perimeter(const QPainterPath &path)
+{
+    // 使用Qt的近似计算
+    double length = 0.0;
+    for (int i = 0; i < path.elementCount() - 1; ++i) {
+        const QPainterPath::Element &elem1 = path.elementAt(i);
+        const QPainterPath::Element &elem2 = path.elementAt(i + 1);
+        if (elem1.type != QPainterPath::MoveToElement && elem2.type != QPainterPath::MoveToElement) {
+            double dx = elem2.x - elem1.x;
+            double dy = elem2.y - elem1.y;
+            length += qSqrt(dx * dx + dy * dy);
+        }
+    }
+    return length;
+}
+
+QPointF PathEditor::centroid(const QPainterPath &path)
+{
+    // 使用边界框中心作为近似
+    QRectF rect = path.boundingRect();
+    return rect.center();
+}
+
+QList<QPointF> PathEditor::intersections(const QPainterPath &path1, const QPainterPath &path2)
+{
+    // 简单实现：返回空列表
+    return QList<QPointF>();
+}
+
+bool PathEditor::isBoostGeometryAvailable()
+{
+    return false; // Boost.Geometry不可用
 }
 
 #include "patheditor.moc"

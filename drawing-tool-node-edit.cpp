@@ -83,7 +83,7 @@ bool DrawingNodeEditTool::mousePressEvent(QMouseEvent *event, const QPointF &sce
             
             // 跳过DrawingLayer
             if (clickedItem && clickedItem->type() == QGraphicsItem::UserType + 100) {
-                qDebug() << "Node edit tool: clicked on DrawingLayer, skipping";
+                // qDebug() << "Node edit tool: clicked on DrawingLayer, skipping";
                 return false;
             }
             
@@ -150,7 +150,7 @@ bool DrawingNodeEditTool::mouseMoveEvent(QMouseEvent *event, const QPointF &scen
     if (m_dragging && m_activeHandle && m_selectedShape) {
         // 检查图形是否仍然有效
         if (!m_selectedShape->scene()) {
-            qDebug() << "Shape is no longer in scene during drag, stopping drag";
+            // qDebug() << "Shape is no longer in scene during drag, stopping drag";
             m_dragging = false;
             m_activeHandle = nullptr;
             clearNodeHandles();
@@ -271,7 +271,7 @@ bool DrawingNodeEditTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &s
 void DrawingNodeEditTool::activate(DrawingScene *scene, DrawingView *view)
 {
     ToolBase::activate(scene, view);
-    qDebug() << "Node edit tool activated";
+    // qDebug() << "Node edit tool activated";
     
     // 清除之前选中的图形
     m_selectedShape = nullptr;
@@ -291,18 +291,18 @@ void DrawingNodeEditTool::activate(DrawingScene *scene, DrawingView *view)
         
         // 检查场景中是否有选中的图形
         QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
-        qDebug() << "Node edit tool: checking selected items, count:" << selectedItems.size();
+        // qDebug() << "Node edit tool: checking selected items, count:" << selectedItems.size();
         
         for (QGraphicsItem *item : selectedItems) {
             // 跳过DrawingLayer
             if (item->type() == QGraphicsItem::UserType + 100) {
-                qDebug() << "Node edit tool: skipping DrawingLayer item";
+                // qDebug() << "Node edit tool: skipping DrawingLayer item";
                 continue;
             }
             
             DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
             if (shape) {  // 处理所有选中的图形
-                qDebug() << "Node edit tool: found selected shape, type:" << shape->shapeType();
+                // qDebug() << "Node edit tool: found selected shape, type:" << shape->shapeType();
                 // 隐藏选择边框，只显示节点手柄
                 shape->setShowSelectionIndicator(false);
                 // 设置第一个选中的图形为当前编辑的图形
@@ -328,7 +328,7 @@ void DrawingNodeEditTool::activate(DrawingScene *scene, DrawingView *view)
                 
                 DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
                 if (shape) {
-                    qDebug() << "Node edit tool: no selected shape, using first available shape, type:" << shape->shapeType();
+                    // qDebug() << "Node edit tool: no selected shape, using first available shape, type:" << shape->shapeType();
                     // 选中这个图形
                     shape->setSelected(true);
                     m_selectedShape = shape;
@@ -351,15 +351,15 @@ void DrawingNodeEditTool::activate(DrawingScene *scene, DrawingView *view)
     // 路径已经在paintShape中绘制控制点，其他图形通过updateNodeHandles显示手柄
     if (m_selectedShape) {
         bool isPath = (m_selectedShape->shapeType() == DrawingShape::Path);
-        qDebug() << "Node edit tool: selected shape is path:" << (isPath ? "yes" : "no");
+        // qDebug() << "Node edit tool: selected shape is path:" << (isPath ? "yes" : "no");
         if (!isPath) {
-            qDebug() << "Node edit tool: calling updateNodeHandles for non-path shape";
+            // qDebug() << "Node edit tool: calling updateNodeHandles for non-path shape";
             updateNodeHandles();
         } else {
-            qDebug() << "Node edit tool: skipping updateNodeHandles for path shape";
+            // qDebug() << "Node edit tool: skipping updateNodeHandles for path shape";
         }
     } else {
-        qDebug() << "Node edit tool: no selected shape";
+        // qDebug() << "Node edit tool: no selected shape";
     }
     
     // 连接场景的选择变化信号，以便在选择变化时更新节点手柄
@@ -441,7 +441,7 @@ void DrawingNodeEditTool::deactivate()
     m_dragging = false;
     
     ToolBase::deactivate();
-    qDebug() << "Node edit tool deactivated";
+    // qDebug() << "Node edit tool deactivated";
 }
 
 void DrawingNodeEditTool::onSceneSelectionChanged()
@@ -508,7 +508,7 @@ void DrawingNodeEditTool::updateNodeHandles()
     
     // 检查选中的图形是否仍然有效且在场景中
     if (!m_selectedShape->scene()) {
-        qDebug() << "Selected shape is no longer in scene, clearing selection";
+        // qDebug() << "Selected shape is no longer in scene, clearing selection";
         m_selectedShape = nullptr;
         clearNodeHandles();
         return;
@@ -534,19 +534,19 @@ void DrawingNodeEditTool::updateNodeHandles()
     QVector<QPointF> nodePoints = m_selectedShape->getNodePoints();
     
     // 调试：检查图形类型
-    qDebug() << "updateNodeHandles for shape type:" << m_selectedShape->shapeType() 
-             << "with" << nodePoints.size() << "node points";
+    // qDebug() << "updateNodeHandles for shape type:" << m_selectedShape->shapeType() 
+//          << "with" << nodePoints.size() << "node points";
     
     // 获取图形的变换
     DrawingTransform transform = m_selectedShape->transform();
     
     // 调试：输出图形的变换信息
-    qDebug() << "Shape transform - rotation:" << transform.rotation() 
-             << "position:" << m_selectedShape->pos();
+    // qDebug() << "Shape transform - rotation:" << transform.rotation() 
+//          << "position:" << m_selectedShape->pos();
     
     // 使用shapeType()而不是类型转换来判断，避免类型转换问题
     if (m_selectedShape->shapeType() == DrawingShape::Path) {
-        qDebug() << "Shape is Path (type 2), skipping handle creation entirely";
+        // qDebug() << "Shape is Path (type 2), skipping handle creation entirely";
         return; // 直接返回，不创建任何手柄
     }
     
@@ -574,18 +574,18 @@ void DrawingNodeEditTool::updateNodeHandles()
         } else {
             // 其他类型，使用自定义类型
             handleType = static_cast<EditHandle::HandleType>(static_cast<int>(EditHandle::Custom) + i);
-            qDebug() << "Other shape type, creating custom handle for point" << i << "with type" << handleType;
+            // qDebug() << "Other shape type, creating custom handle for point" << i << "with type" << handleType;
         }
         
         // 创建节点手柄
-        qDebug() << "Creating handle for point" << i << "with type" << handleType << "at position" << point;
+        // qDebug() << "Creating handle for point" << i << "with type" << handleType << "at position" << point;
         EditHandle *handle = new EditHandle(handleType, static_cast<QGraphicsItem*>(nullptr));
         handle->setPos(point);
         m_scene->addItem(handle);
         
         // 保存手柄引用
         m_nodeHandles.append(handle);
-        qDebug() << "Total handles created:" << m_nodeHandles.size();
+        // qDebug() << "Total handles created:" << m_nodeHandles.size();
     }
     
     // 恢复激活状态

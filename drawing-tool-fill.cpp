@@ -66,7 +66,7 @@ DrawingShape* DrawingToolFill::findEnclosedShape(const QPointF &scenePos)
     // 获取点击位置的所有图形
     QList<QGraphicsItem*> items = m_scene->items(scenePos);
     
-    qDebug() << "Fill tool: clicked at" << scenePos << "found" << items.size() << "items";
+    // qDebug() << "Fill tool: clicked at" << scenePos << "found" << items.size() << "items";
     
     // 从上到下查找第一个可填充的图形
     for (QGraphicsItem *item : items) {
@@ -74,18 +74,18 @@ DrawingShape* DrawingToolFill::findEnclosedShape(const QPointF &scenePos)
         if (shape) {
             // 检查图形类型是否支持填充
             DrawingShape::ShapeType type = shape->shapeType();
-            qDebug() << "Fill tool: found shape type" << type;
+            // qDebug() << "Fill tool: found shape type" << type;
             
             if (type == DrawingShape::Rectangle || 
                 type == DrawingShape::Ellipse || 
                 type == DrawingShape::Polygon) {
                 // 将场景坐标转换为图形本地坐标
                 QPointF localPos = shape->mapFromScene(scenePos);
-                qDebug() << "Fill tool: scenePos=" << scenePos << "localPos=" << localPos;
+                // qDebug() << "Fill tool: scenePos=" << scenePos << "localPos=" << localPos;
                 
                 // 检查点是否在图形内部
                 bool contains = shape->shape().contains(localPos);
-                qDebug() << "Fill tool: shape contains point?" << contains;
+                // qDebug() << "Fill tool: shape contains point?" << contains;
                 if (contains) {
                     return shape;
                 }
