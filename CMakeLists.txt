@@ -51,6 +51,8 @@ set(SOURCES
     colorpalette.cpp
     # 路径编辑器
     patheditor.cpp
+    # 光标管理器
+    cursor-manager.cpp
 )
 
 # 收集头文件
@@ -91,6 +93,8 @@ set(HEADERS
     colorpalette.h
     # 路径编辑器
     patheditor.h
+    # 光标管理器
+    cursor-manager.h
 )
 
 # 收集资源文件

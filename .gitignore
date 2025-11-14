@@ -43,3 +43,8 @@ QDrawPro_autogen/
 *.moc
 moc_*.cpp
 *.qrc.cpp
+
+# Data directory (keep structure but ignore contents)
+/data/svg-tests/*.log
+/data/temp/*
+!/data/temp/.gitkeep

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 简单的方格Pattern -->
+    <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+      <rect width="10" height="10" fill="lightblue"/>
+      <rect width="5" height="5" fill="navy"/>
+    </pattern>
+  </defs>
+  
+  <!-- 使用方格Pattern填充的矩形 -->
+  <rect x="20" y="20" width="100" height="80" fill="url(#smallGrid)" stroke="black" stroke-width="1"/>
+</svg>

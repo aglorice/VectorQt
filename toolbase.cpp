@@ -18,12 +18,32 @@ void ToolBase::activate(DrawingScene *scene, DrawingView *view)
 {
     m_scene = scene;
     m_view = view;
+    
+    // 设置工具光标
+    setToolCursor();
 }
 
 void ToolBase::deactivate()
 {
+    // 恢复默认光标
+    restoreDefaultCursor();
+    
     m_scene = nullptr;
     m_view = nullptr;
+}
+
+void ToolBase::setToolCursor()
+{
+    if (m_view) {
+        CursorManager::instance().setCursorForView(m_view, getCursorType());
+    }
+}
+
+void ToolBase::restoreDefaultCursor()
+{
+    if (m_view) {
+        m_view->setCursor(Qt::ArrowCursor);
+    }
 }
 
 bool ToolBase::mousePressEvent(QMouseEvent *event, const QPointF &scenePos)

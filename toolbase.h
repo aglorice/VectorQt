@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QPointF>
 #include <QGraphicsItem>
+#include "cursor-manager.h"
 
 // Qt命名空间中的前置声明
 QT_BEGIN_NAMESPACE
@@ -27,6 +28,9 @@ public:
     virtual void activate(DrawingScene *scene, DrawingView *view);
     virtual void deactivate();
     
+    // 获取工具对应的光标类型
+    virtual CursorManager::CursorType getCursorType() const { return CursorManager::DefaultCursor; }
+    
     virtual bool mousePressEvent(QMouseEvent *event, const QPointF &scenePos);
     virtual bool mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos);
     virtual bool mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos);
@@ -34,6 +38,12 @@ public:
     
     DrawingScene* scene() const { return m_scene; }
     DrawingView* view() const { return m_view; }
+    
+    // 设置工具光标
+    void setToolCursor();
+    
+    // 恢复默认光标
+    void restoreDefaultCursor();
 
 signals:
     // 形状创建完成信号
@@ -61,6 +71,9 @@ public:
     bool mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseDoubleClickEvent(QMouseEvent *event, const QPointF &scenePos) override;
+    
+    // 获取工具光标类型
+    CursorManager::CursorType getCursorType() const override { return CursorManager::SelectCursor; }
 
 private:
     bool m_dragging;
@@ -81,6 +94,9 @@ public:
     bool mousePressEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos) override;
+    
+    // 获取工具光标类型
+    CursorManager::CursorType getCursorType() const override { return CursorManager::RectangleCursor; }
 
 private:
     bool m_drawing;
@@ -103,6 +119,9 @@ public:
     bool mousePressEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos) override;
+    
+    // 获取工具光标类型
+    CursorManager::CursorType getCursorType() const override { return CursorManager::EllipseCursor; }
 
 private:
     bool m_drawing;

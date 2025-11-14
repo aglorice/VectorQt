@@ -17,6 +17,9 @@ public:
     bool mousePressEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos) override;
+    
+    // 获取工具光标类型
+    CursorManager::CursorType getCursorType() const override { return CursorManager::LineCursor; }
 
 private:
     DrawingLine *m_currentLine;

@@ -109,10 +109,13 @@ private:
     
     // 解析Pattern
     static void parsePatternElements(const QDomElement &root);
+    static QBrush parsePatternBrush(const QDomElement &patternElement);
     static QBrush parsePatternBrush(const QString &patternId);
     
     // 解析Marker
     static void parseMarkerElements(const QDomElement &root);
+    static void renderMarkerToCache(const QString &id, const QDomElement &markerElement);
+    static QPainterPath createMarkerPath(const QString &markerId, const QPointF &startPoint, const QPointF &endPoint);
     static void applyMarkerToPath(DrawingPath *path, const QString &markerId);
     
     // 从字符串解析长度值

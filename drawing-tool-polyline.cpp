@@ -47,7 +47,7 @@ bool DrawingToolPolyline::mousePressEvent(QMouseEvent *event, const QPointF &sce
             m_scene->addItem(m_currentPolyline);
         } else {
             // 确认上一个点的位置，然后添加新点
-            if (m_currentPolyline && m_currentPolyline->pointCount() > 0) {
+            if (m_currentPolyline && m_currentPolyline->pointCount() > 1) {
                 // 先确认上一个点的位置（此时已经被mouseMove更新到正确位置）
                 // 然后添加新的预览点
                 m_currentPolyline->addPoint(scenePos);
@@ -58,9 +58,9 @@ bool DrawingToolPolyline::mousePressEvent(QMouseEvent *event, const QPointF &sce
     } else if (event->button() == Qt::RightButton && m_drawing) {
         // 右键完成折线绘制
         m_drawing = false;
-        if (m_currentPolyline) {
-            // 最后一个点已经在mouseReleaseEvent中被确认了
-            // 不需要移除任何点
+        if (m_currentPolyline && m_currentPolyline->pointCount() > 1) {
+            // 移除最后一个预览点
+            m_currentPolyline->removePoint(m_currentPolyline->pointCount() - 1);
             m_currentPolyline = nullptr; // 不删除，让场景管理
         }
         return true;
@@ -100,9 +100,9 @@ bool DrawingToolPolyline::mouseDoubleClickEvent(QMouseEvent *event, const QPoint
     if (event->button() == Qt::LeftButton && m_drawing) {
         // 双击完成折线绘制
         m_drawing = false;
-        if (m_currentPolyline) {
-            // 最后一个点已经在mouseReleaseEvent中被确认了
-            // 不需要移除任何点
+        if (m_currentPolyline && m_currentPolyline->pointCount() > 1) {
+            // 移除最后一个预览点
+            m_currentPolyline->removePoint(m_currentPolyline->pointCount() - 1);
             m_currentPolyline = nullptr; // 不删除，让场景管理
         }
         return true;

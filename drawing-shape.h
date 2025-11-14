@@ -275,6 +275,11 @@ public:
     void endNodeDrag(int index) override;
     void updateFromNodePoints() override;
     int getNodePointCount() const override { return m_controlPoints.size(); }
+    
+    // Marker相关
+    void setMarker(const QString &markerId, const QPixmap &markerPixmap, const QTransform &markerTransform);
+    bool hasMarker() const { return !m_markerId.isEmpty(); }
+    QString markerId() const { return m_markerId; }
 
 protected:
     void paintShape(QPainter *painter) override;
@@ -293,6 +298,11 @@ private:
     QVector<QPainterPath::Element> m_pathElements; // 原始路径元素，保存曲线信息
     QVector<QPointF> m_controlPoints;  // 控制点，用于编辑
     QVector<QPainterPath::ElementType> m_controlPointTypes; // 控制点类型
+    
+    // Marker相关
+    QString m_markerId;
+    QPixmap m_markerPixmap;
+    QTransform m_markerTransform;
     bool m_showControlPolygon = false; // 是否显示控制点连线
     int m_activeControlPoint = -1;     // 当前活动的控制点索引
     QPointF m_dragStartPos;           // 拖动开始位置

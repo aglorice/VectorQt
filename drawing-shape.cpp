@@ -734,6 +734,14 @@ DrawingPath::DrawingPath(QGraphicsItem *parent)
 {
 }
 
+void DrawingPath::setMarker(const QString &markerId, const QPixmap &markerPixmap, const QTransform &markerTransform)
+{
+    m_markerId = markerId;
+    m_markerPixmap = markerPixmap;
+    m_markerTransform = markerTransform;
+    update(); // 触发重绘以显示Marker
+}
+
 QRectF DrawingPath::localBounds() const
 {
     // 获取路径本身的边界框
@@ -979,7 +987,23 @@ bool DrawingPath::showControlPolygon() const
 
 void DrawingPath::paintShape(QPainter *painter)
 {
+    // 绘制主路径
     painter->drawPath(m_path);
+    
+    // 绘制Marker（如果有）
+    if (hasMarker()) {
+        // 保存当前画家状态
+        painter->save();
+        
+        // 应用Marker变换
+        painter->setTransform(m_markerTransform, true);
+        
+        // 绘制Marker
+        painter->drawPixmap(0, 0, m_markerPixmap);
+        
+        // 恢复画家状态
+        painter->restore();
+    }
     
     // 如果启用了控制点连线，则绘制连接线
     if (m_showControlPolygon) {

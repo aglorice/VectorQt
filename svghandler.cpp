@@ -27,6 +27,9 @@ static QHash<QString, QBrush> s_patterns;
 // Marker存储
 static QHash<QString, QDomElement> s_markers;
 
+// Marker渲染缓存
+static QHash<QString, QPixmap> s_markerCache;
+
 bool SvgHandler::importFromSvg(DrawingScene *scene, const QString &fileName)
 {
     // qDebug() << "开始导入SVG文件:" << fileName;
@@ -350,6 +353,23 @@ DrawingPath* SvgHandler::parsePathElement(const QDomElement &element)
     QString transform = element.attribute("transform");
     if (!transform.isEmpty()) {
         parseTransformAttribute(drawingPath, transform);
+    }
+    
+    // 解析Marker属性
+    QString markerStart = element.attribute("marker-start");
+    QString markerMid = element.attribute("marker-mid");
+    QString markerEnd = element.attribute("marker-end");
+    
+    // 应用Marker（目前只支持end marker）
+    if (!markerEnd.isEmpty()) {
+        // 提取marker ID
+        QRegularExpression markerRegex("url\\(#([^\\)]+)\\)");
+        QRegularExpressionMatch match = markerRegex.match(markerEnd);
+        if (match.hasMatch()) {
+            QString markerId = match.captured(1);
+            applyMarkerToPath(drawingPath, markerId);
+        } else {
+        }
     }
     
     return drawingPath;
@@ -713,6 +733,22 @@ DrawingPath* SvgHandler::parseLineElement(const QDomElement &element)
         parseTransformAttribute(line, transform);
     }
     
+    // 解析Marker属性
+    QString markerStart = element.attribute("marker-start");
+    QString markerMid = element.attribute("marker-mid");
+    QString markerEnd = element.attribute("marker-end");
+    
+    // 应用Marker（目前只支持end marker）
+    if (!markerEnd.isEmpty()) {
+        // 提取marker ID
+        QRegularExpression markerRegex("url\\(#([^\\)]+)\\)");
+        QRegularExpressionMatch match = markerRegex.match(markerEnd);
+        if (match.hasMatch()) {
+            QString markerId = match.captured(1);
+            applyMarkerToPath(line, markerId);
+        }
+    }
+    
     return line;
 }
 
@@ -869,7 +905,7 @@ void SvgHandler::parseStyleAttributes(DrawingShape *shape, const QDomElement &el
             else if (s_patterns.contains(refId)) {
                 QBrush patternBrush = s_patterns[refId];
                 shape->setFillBrush(patternBrush);
-                // qDebug() << "应用Pattern填充:" << refId;
+                // 应用Pattern填充
             }
         } else {
             QColor fillColor = parseColor(fill);
@@ -1063,7 +1099,7 @@ QColor SvgHandler::parseColor(const QString &colorStr)
 qreal SvgHandler::parseLength(const QString &lengthStr)
 {
     // 解析长度值，处理单位（px, pt, cm, mm, in等）
-    QRegularExpression regex(R"(([\\d.]+)([a-z%]*))");
+    QRegularExpression regex("([0-9.]+)([a-z%]*)");
     QRegularExpressionMatch match = regex.match(lengthStr);
     
     if (match.hasMatch()) {
@@ -1074,7 +1110,14 @@ qreal SvgHandler::parseLength(const QString &lengthStr)
         return value;
     }
     
-    return 1.0; // 默认值
+    // 如果没有匹配到，尝试直接转换为数字
+    bool ok;
+    qreal value = lengthStr.toDouble(&ok);
+    if (ok) {
+        return value;
+    }
+    
+    return 10.0; // 默认值
 }
 
 bool SvgHandler::exportToSvg(DrawingScene *scene, const QString &fileName)
@@ -1854,17 +1897,116 @@ void SvgHandler::parsePatternElements(const QDomElement &root)
         QDomElement patternElement = patterns.at(i).toElement();
         QString id = patternElement.attribute("id");
         if (!id.isEmpty()) {
-            // 简化实现：创建一个简单的纹理Pattern
-            QBrush patternBrush = parsePatternBrush(id);
+            // 解析Pattern内容
+            QBrush patternBrush = parsePatternBrush(patternElement);
             s_patterns[id] = patternBrush;
             // qDebug() << "解析Pattern:" << id;
         }
     }
 }
 
+QBrush SvgHandler::parsePatternBrush(const QDomElement &patternElement)
+{
+    // 获取Pattern属性
+    QString id = patternElement.attribute("id");
+    qreal width = parseLength(patternElement.attribute("width", "10"));
+    qreal height = parseLength(patternElement.attribute("height", "10"));
+    QString patternUnits = patternElement.attribute("patternUnits", "objectBoundingBox");
+    QString patternContentUnits = patternElement.attribute("patternContentUnits", "userSpaceOnUse");
+    
+    // 创建Pattern图像
+    QPixmap patternPixmap(static_cast<int>(width), static_cast<int>(height));
+    patternPixmap.fill(Qt::transparent);
+    
+    QPainter painter(&patternPixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    // 解析Pattern内容
+    QDomNodeList children = patternElement.childNodes();
+    for (int i = 0; i < children.size(); ++i) {
+        QDomNode node = children.at(i);
+        if (node.isElement()) {
+            QDomElement childElement = node.toElement();
+            QString tagName = childElement.tagName();
+            
+            if (tagName == "rect") {
+                qreal x = parseLength(childElement.attribute("x", "0"));
+                qreal y = parseLength(childElement.attribute("y", "0"));
+                qreal w = parseLength(childElement.attribute("width", "0"));
+                qreal h = parseLength(childElement.attribute("height", "0"));
+                
+                QColor fillColor = parseColor(childElement.attribute("fill", "black"));
+                QColor strokeColor = parseColor(childElement.attribute("stroke", "none"));
+                qreal strokeWidth = parseLength(childElement.attribute("stroke-width", "1"));
+                
+                painter.setBrush(QBrush(fillColor));
+                painter.setPen(QPen(strokeColor, strokeWidth));
+                painter.drawRect(x, y, w, h);
+            } else if (tagName == "circle") {
+                qreal cx = parseLength(childElement.attribute("cx", "0"));
+                qreal cy = parseLength(childElement.attribute("cy", "0"));
+                qreal r = parseLength(childElement.attribute("r", "0"));
+                
+                QColor fillColor = parseColor(childElement.attribute("fill", "black"));
+                QColor strokeColor = parseColor(childElement.attribute("stroke", "none"));
+                qreal strokeWidth = parseLength(childElement.attribute("stroke-width", "1"));
+                
+                painter.setBrush(QBrush(fillColor));
+                painter.setPen(QPen(strokeColor, strokeWidth));
+                painter.drawEllipse(QPointF(cx, cy), r, r);
+            } else if (tagName == "path") {
+                QString d = childElement.attribute("d");
+                if (!d.isEmpty()) {
+                    QPainterPath path;
+                    parseSvgPathData(d, path);
+                    
+                    QColor fillColor = parseColor(childElement.attribute("fill", "black"));
+                    QColor strokeColor = parseColor(childElement.attribute("stroke", "none"));
+                    qreal strokeWidth = parseLength(childElement.attribute("stroke-width", "1"));
+                    
+                    painter.setBrush(QBrush(fillColor));
+                    painter.setPen(QPen(strokeColor, strokeWidth));
+                    painter.drawPath(path);
+                }
+            } else if (tagName == "line") {
+                qreal x1 = parseLength(childElement.attribute("x1", "0"));
+                qreal y1 = parseLength(childElement.attribute("y1", "0"));
+                qreal x2 = parseLength(childElement.attribute("x2", "0"));
+                qreal y2 = parseLength(childElement.attribute("y2", "0"));
+                
+                QColor strokeColor = parseColor(childElement.attribute("stroke", "black"));
+                qreal strokeWidth = parseLength(childElement.attribute("stroke-width", "1"));
+                
+                painter.setPen(QPen(strokeColor, strokeWidth));
+                painter.drawLine(x1, y1, x2, y2);
+            }
+        }
+    }
+    
+    painter.end();
+    
+    // 创建Pattern画刷
+    QBrush patternBrush(patternPixmap);
+    
+    // 设置Pattern变换
+    QTransform patternTransform;
+    if (patternUnits == "objectBoundingBox") {
+        // 对于objectBoundingBox，Pattern会自动缩放以适应对象
+        patternTransform.scale(1.0 / width, 1.0 / height);
+    }
+    
+    patternBrush.setTransform(patternTransform);
+    return patternBrush;
+}
+
 QBrush SvgHandler::parsePatternBrush(const QString &patternId)
 {
-    // 简化实现：创建一个简单的点阵Pattern
+    // 兼容旧接口
+    if (s_patterns.contains(patternId)) {
+        return s_patterns[patternId];
+    }
+    
+    // 返回默认Pattern
     QPixmap patternPixmap(20, 20);
     patternPixmap.fill(Qt::transparent);
     
@@ -1898,6 +2040,7 @@ void SvgHandler::parseMarkerElements(const QDomElement &root)
     
     // 清理之前的Marker定义
     s_markers.clear();
+    s_markerCache.clear();
     
     // 解析所有Marker
     QDomNodeList markers = defs.elementsByTagName("marker");
@@ -1906,9 +2049,129 @@ void SvgHandler::parseMarkerElements(const QDomElement &root)
         QString id = markerElement.attribute("id");
         if (!id.isEmpty()) {
             s_markers[id] = markerElement;
+            // 预渲染Marker到缓存
+            renderMarkerToCache(id, markerElement);
             // qDebug() << "解析Marker:" << id;
         }
     }
+}
+
+// 渲染Marker到缓存
+void SvgHandler::renderMarkerToCache(const QString &id, const QDomElement &markerElement)
+{
+    // 获取Marker属性
+    qreal markerWidth = parseLength(markerElement.attribute("markerWidth", "10"));
+    qreal markerHeight = parseLength(markerElement.attribute("markerHeight", "10"));
+    qreal refX = parseLength(markerElement.attribute("refX", "0"));
+    qreal refY = parseLength(markerElement.attribute("refY", "0"));
+    QString orient = markerElement.attribute("orient", "auto");
+    
+    // 创建缓存图像
+    QPixmap pixmap(static_cast<int>(markerWidth), static_cast<int>(markerHeight));
+    pixmap.fill(Qt::transparent);
+    
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    // 解析Marker内容
+    QDomNodeList children = markerElement.childNodes();
+    for (int i = 0; i < children.size(); ++i) {
+        QDomNode node = children.at(i);
+        if (node.isElement()) {
+            QDomElement childElement = node.toElement();
+            QString tagName = childElement.tagName();
+            
+            if (tagName == "path") {
+                QString d = childElement.attribute("d");
+                if (!d.isEmpty()) {
+                    QPainterPath path;
+                    parseSvgPathData(d, path);
+                    
+                    // 获取样式
+                    QColor fillColor = parseColor(childElement.attribute("fill", "black"));
+                    QColor strokeColor = parseColor(childElement.attribute("stroke", "none"));
+                    qreal strokeWidth = parseLength(childElement.attribute("stroke-width", "1"));
+                    
+                    // 应用样式
+                    painter.setBrush(QBrush(fillColor));
+                    painter.setPen(QPen(strokeColor, strokeWidth));
+                    
+                    // 绘制路径
+                    painter.drawPath(path);
+                }
+            } else if (tagName == "circle") {
+                qreal cx = parseLength(childElement.attribute("cx", "0"));
+                qreal cy = parseLength(childElement.attribute("cy", "0"));
+                qreal r = parseLength(childElement.attribute("r", "0"));
+                
+                QColor fillColor = parseColor(childElement.attribute("fill", "black"));
+                QColor strokeColor = parseColor(childElement.attribute("stroke", "none"));
+                qreal strokeWidth = parseLength(childElement.attribute("stroke-width", "1"));
+                
+                painter.setBrush(QBrush(fillColor));
+                painter.setPen(QPen(strokeColor, strokeWidth));
+                painter.drawEllipse(QPointF(cx, cy), r, r);
+            } else if (tagName == "rect") {
+                qreal x = parseLength(childElement.attribute("x", "0"));
+                qreal y = parseLength(childElement.attribute("y", "0"));
+                qreal width = parseLength(childElement.attribute("width", "0"));
+                qreal height = parseLength(childElement.attribute("height", "0"));
+                
+                QColor fillColor = parseColor(childElement.attribute("fill", "black"));
+                QColor strokeColor = parseColor(childElement.attribute("stroke", "none"));
+                qreal strokeWidth = parseLength(childElement.attribute("stroke-width", "1"));
+                
+                painter.setBrush(QBrush(fillColor));
+                painter.setPen(QPen(strokeColor, strokeWidth));
+                painter.drawRect(x, y, width, height);
+            }
+        }
+    }
+    
+    painter.end();
+    s_markerCache[id] = pixmap;
+}
+
+// 创建Marker路径
+QPainterPath SvgHandler::createMarkerPath(const QString &markerId, const QPointF &startPoint, const QPointF &endPoint)
+{
+    QPainterPath markerPath;
+    
+    if (!s_markers.contains(markerId) || !s_markerCache.contains(markerId)) {
+        return markerPath;
+    }
+    
+    QDomElement markerElement = s_markers[markerId];
+    QPixmap markerPixmap = s_markerCache[markerId];
+    
+    // 获取Marker属性
+    qreal markerWidth = parseLength(markerElement.attribute("markerWidth", "10"));
+    qreal markerHeight = parseLength(markerElement.attribute("markerHeight", "10"));
+    qreal refX = parseLength(markerElement.attribute("refX", "0"));
+    qreal refY = parseLength(markerElement.attribute("refY", "0"));
+    QString orient = markerElement.attribute("orient", "auto");
+    
+    // 计算方向
+    qreal angle = 0;
+    if (orient == "auto") {
+        // 计算线段方向
+        qreal dx = endPoint.x() - startPoint.x();
+        qreal dy = endPoint.y() - startPoint.y();
+        angle = qAtan2(dy, dx) * 180.0 / M_PI;
+    }
+    
+    // 计算Marker位置
+    QPointF markerPos = endPoint - QPointF(refX, refY);
+    
+    // 创建变换矩阵
+    QTransform transform;
+    transform.translate(markerPos.x(), markerPos.y());
+    transform.rotate(angle);
+    
+    // 将Marker添加到路径
+    markerPath.addRect(markerPos.x(), markerPos.y(), markerWidth, markerHeight);
+    
+    return markerPath;
 }
 
 void SvgHandler::applyMarkerToPath(DrawingPath *path, const QString &markerId)
@@ -1917,12 +2180,39 @@ void SvgHandler::applyMarkerToPath(DrawingPath *path, const QString &markerId)
         return;
     }
     
-    if (s_markers.contains(markerId)) {
+    if (s_markers.contains(markerId) && s_markerCache.contains(markerId)) {
         QDomElement markerElement = s_markers[markerId];
-        // TODO: 实现Marker应用到路径的逻辑
-        // qDebug() << "应用Marker到路径:" << markerId;
+        QPixmap markerPixmap = s_markerCache[markerId];
+        
+        // 获取Marker属性
+        qreal markerWidth = parseLength(markerElement.attribute("markerWidth", "10"));
+        qreal markerHeight = parseLength(markerElement.attribute("markerHeight", "10"));
+        qreal refX = parseLength(markerElement.attribute("refX", "0"));
+        qreal refY = parseLength(markerElement.attribute("refY", "0"));
+        
+        // 获取路径的起点和终点
+        QPainterPath painterPath = path->path();
+        if (painterPath.elementCount() < 2) {
+            return;
+        }
+        
+        // 获取起点和终点
+        QPointF startPoint = painterPath.elementAt(0);
+        QPointF endPoint = painterPath.elementAt(painterPath.elementCount() - 1);
+        
+        // 计算方向
+        qreal dx = endPoint.x() - startPoint.x();
+        qreal dy = endPoint.y() - startPoint.y();
+        qreal angle = qAtan2(dy, dx) * 180.0 / M_PI;
+        
+        // 创建Marker图像变换
+        QTransform transform;
+        transform.translate(endPoint.x() - refX, endPoint.y() - refY);
+        transform.rotate(angle);
+        
+        // 存储Marker信息用于渲染
+        path->setMarker(markerId, markerPixmap, transform);
     } else {
-        // qDebug() << "未找到Marker:" << markerId;
     }
 }
 

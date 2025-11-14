@@ -27,6 +27,9 @@ public:
     bool mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos) override;
     bool mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos) override;
     
+    // 获取工具光标类型
+    CursorManager::CursorType getCursorType() const override { return CursorManager::NodeEditCursor; }
+    
     // 激活/停用
     void activate(DrawingScene *scene, DrawingView *view) override;
     void deactivate() override;
