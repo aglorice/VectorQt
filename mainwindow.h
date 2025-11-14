@@ -24,6 +24,7 @@ class ToolBase;
 class PropertyPanel;
 class Ruler;
 class ColorPalette;
+class PathEditor;
 
 class MainWindow : public QMainWindow
 {
@@ -88,10 +89,20 @@ private slots:
     void onSelectionChanged();
     void onSceneChanged();
     void updateZoomLabel();
+    void updateRulerSelection();
     
     // 🌟 参考线相关槽函数
     void onGuideRequested(const QPointF &position, Qt::Orientation orientation);
     void clearAllGuides();
+    
+    // 路径布尔运算槽函数
+    void pathUnion();
+    void pathSubtract();
+    void pathIntersect();
+    void pathXor();
+    
+    // 执行路径布尔运算的通用方法
+    void performPathBooleanOperation(int op, const QString &opName);
 
 protected:
     void mouseMoveEvent(QMouseEvent *event) override;
@@ -152,6 +163,10 @@ private:
     QAction *m_fillToolAction;
     QAction *m_lineToolAction;
     QAction *m_pathEditToolAction;
+    QAction *m_pathUnionAction;
+    QAction *m_pathSubtractAction;
+    QAction *m_pathIntersectAction;
+    QAction *m_pathXorAction;
     QAction *m_deleteAction;
     QAction *m_copyAction;
     QAction *m_pasteAction;

@@ -34,6 +34,11 @@ void DrawingToolPathEdit::activate(DrawingScene *scene, DrawingView *view)
     ToolBase::activate(scene, view);
     m_selectedPaths.clear();
     m_isDragging = false;
+    
+    // 设置视图为框选模式
+    if (view) {
+        view->setDragMode(QGraphicsView::RubberBandDrag);
+    }
 }
 
 void DrawingToolPathEdit::deactivate()
@@ -50,71 +55,26 @@ void DrawingToolPathEdit::deactivate()
     }
     m_selectedPaths.clear();
     
+    // 恢复视图的拖动模式
+    if (m_view) {
+        m_view->setDragMode(QGraphicsView::NoDrag);
+    }
+    
     ToolBase::deactivate();
 }
 
 bool DrawingToolPathEdit::mousePressEvent(QMouseEvent *event, const QPointF &scenePos)
 {
     if (event->button() == Qt::LeftButton && m_scene) {
-        if (m_editMode == SelectMode) {
-            // 选择模式：选择路径
-            QList<QGraphicsItem*> items = m_scene->items(scenePos);
-            DrawingShape *clickedShape = nullptr;
-            
-            for (QGraphicsItem *item : items) {
-                // 尝试转换为DrawingShape（包括DrawingPath和DrawingPolygon）
-                if (auto shape = qgraphicsitem_cast<DrawingShape*>(item)) {
-                    clickedShape = shape;
-                    break;
-                }
-            }
-            
-            if (clickedShape) {
-                qDebug() << "Clicked on shape, current selection count:" << m_selectedPaths.size();
-                
-                if (event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier)) {
-                    // Ctrl+点击或Shift+点击：添加到选择（多选模式）
-                    if (!m_selectedPaths.contains(clickedShape)) {
-                        m_selectedPaths.append(clickedShape);
-                        clickedShape->setSelected(true);
-                        qDebug() << "Shape added to selection, new count:" << m_selectedPaths.size();
-                    } else {
-                        // 如果已选中，则从选择中移除
-                        m_selectedPaths.removeOne(clickedShape);
-                        clickedShape->setSelected(false);
-                        qDebug() << "Shape removed from selection, new count:" << m_selectedPaths.size();
-                    }
-                } else {
-                    // 普通点击：替换选择
-                    for (DrawingShape *shape : m_selectedPaths) {
-                        if (shape) {
-                            shape->setSelected(false);
-                        }
-                    }
-                    m_selectedPaths.clear();
-                    m_selectedPaths.append(clickedShape);
-                    clickedShape->setSelected(true);
-                    qDebug() << "Selection replaced, new count:" << m_selectedPaths.size();
-                }
-                
-                m_isDragging = true;
-                m_lastPos = scenePos;
-            } else {
-                // 点击空白处：清除选择
-                qDebug() << "Clicked on empty space, clearing selection";
-                for (DrawingShape *shape : m_selectedPaths) {
-                    if (shape) {
-                        shape->setSelected(false);
-                    }
-                }
-                m_selectedPaths.clear();
-            }
-        }
-        
-        return true;
+        // 让场景处理选择和框选，不进行拖动
+        return false;
     } else if (event->button() == Qt::RightButton && m_scene) {
         // 右键显示上下文菜单
         qDebug() << "Right click, showing context menu";
+        
+        // 更新选择列表为当前场景选中的对象
+        updateSelectedPathsFromScene();
+        
         showContextMenu(scenePos);
         return true;
     }
@@ -124,29 +84,17 @@ bool DrawingToolPathEdit::mousePressEvent(QMouseEvent *event, const QPointF &sce
 
 bool DrawingToolPathEdit::mouseMoveEvent(QMouseEvent *event, const QPointF &scenePos)
 {
-    if (m_isDragging && !m_selectedPaths.isEmpty() && m_scene) {
-        // 移动选中的路径
-        QPointF delta = scenePos - m_lastPos;
-        
-        for (DrawingShape *shape : m_selectedPaths) {
-            shape->setPos(shape->pos() + delta);
-        }
-        
-        m_lastPos = scenePos;
-        m_scene->setModified(true);
-        return true;
-    }
-    
+    // 不处理拖动，让场景处理框选
+    Q_UNUSED(event)
+    Q_UNUSED(scenePos)
     return false;
 }
 
 bool DrawingToolPathEdit::mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos)
 {
-    if (event->button() == Qt::LeftButton) {
-        m_isDragging = false;
-        return true;
-    }
-    
+    // 不处理拖动，让场景处理
+    Q_UNUSED(event)
+    Q_UNUSED(scenePos)
     return false;
 }
 
@@ -351,6 +299,11 @@ void DrawingToolPathEdit::executePathOperation()
 
 void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
 {
+    // 确保场景存在
+    if (!m_scene) {
+        return;
+    }
+    
     QMenu contextMenu;
     
     // 布尔运算菜单
@@ -394,9 +347,9 @@ void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
         m_booleanOp = PathEditor::Xor;
         executePathOperation();
     } else if (selectedAction == simplifyAction) {
-        if (!m_selectedPaths.isEmpty()) {
+        if (!m_selectedPaths.isEmpty() && m_scene) {
             DrawingShape *shape = m_selectedPaths.first();
-            if (shape) {
+            if (shape && shape->scene()) {
                 // 使用变换后的路径，确保考虑了所有变换
                 QPainterPath transformedPath = shape->transformedShape();
                 // 简化路径
@@ -414,8 +367,10 @@ void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
                 newPath->setStrokePen(shape->strokePen());
                 newPath->setFillBrush(shape->fillBrush());
                 
-                // 从场景中移除原始形状
+                // 安全地从场景中移除原始形状
+                shape->setSelected(false);
                 m_scene->removeItem(shape);
+                
                 // 添加新路径到场景
                 m_scene->addItem(newPath);
                 m_scene->setModified(true);
@@ -424,12 +379,15 @@ void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
                 m_selectedPaths.clear();
                 m_selectedPaths.append(newPath);
                 newPath->setSelected(true);
+                
+                // 安全删除原始形状
+                delete shape;
             }
         }
     } else if (selectedAction == smoothAction) {
-        if (!m_selectedPaths.isEmpty()) {
+        if (!m_selectedPaths.isEmpty() && m_scene) {
             DrawingShape *shape = m_selectedPaths.first();
-            if (shape) {
+            if (shape && shape->scene()) {
                 // 使用变换后的路径
                 QPainterPath transformedPath = shape->transformedShape();
                 QPainterPath smoothed = PathEditor::smoothPath(transformedPath, 0.5);
@@ -446,8 +404,10 @@ void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
                 newPath->setStrokePen(shape->strokePen());
                 newPath->setFillBrush(shape->fillBrush());
                 
-                // 从场景中移除原始形状
+                // 安全地从场景中移除原始形状
+                shape->setSelected(false);
                 m_scene->removeItem(shape);
+                
                 // 添加新路径到场景
                 m_scene->addItem(newPath);
                 m_scene->setModified(true);
@@ -456,12 +416,15 @@ void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
                 m_selectedPaths.clear();
                 m_selectedPaths.append(newPath);
                 newPath->setSelected(true);
+                
+                // 安全删除原始形状
+                delete shape;
             }
         }
     } else if (selectedAction == curveAction) {
-        if (!m_selectedPaths.isEmpty()) {
+        if (!m_selectedPaths.isEmpty() && m_scene) {
             DrawingShape *shape = m_selectedPaths.first();
-            if (shape) {
+            if (shape && shape->scene()) {
                 // 使用变换后的路径
                 QPainterPath transformedPath = shape->transformedShape();
                 QPainterPath curved = PathEditor::convertToCurve(transformedPath);
@@ -478,8 +441,10 @@ void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
                 newPath->setStrokePen(shape->strokePen());
                 newPath->setFillBrush(shape->fillBrush());
                 
-                // 从场景中移除原始形状
+                // 安全地从场景中移除原始形状
+                shape->setSelected(false);
                 m_scene->removeItem(shape);
+                
                 // 添加新路径到场景
                 m_scene->addItem(newPath);
                 m_scene->setModified(true);
@@ -488,6 +453,9 @@ void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
                 m_selectedPaths.clear();
                 m_selectedPaths.append(newPath);
                 newPath->setSelected(true);
+                
+                // 安全删除原始形状
+                delete shape;
             }
         }
     } else if (selectedAction == offsetAction) {
@@ -537,35 +505,41 @@ void DrawingToolPathEdit::showContextMenu(const QPointF &scenePos)
             }
         }
     } else if (selectedAction == arrowAction) {
-        QPainterPath arrow = PathEditor::createArrow(
-            QPointF(scenePos.x() - 50, scenePos.y()),
-            QPointF(scenePos.x() + 50, scenePos.y())
-        );
-        DrawingPath *newPath = new DrawingPath();
-        newPath->setPath(arrow);
-        newPath->setPos(0, 0);
-        newPath->setStrokePen(QPen(Qt::black, 2));
-        newPath->setFillBrush(Qt::NoBrush);
-        m_scene->addItem(newPath);
-        m_scene->setModified(true);
+        if (m_scene) {
+            QPainterPath arrow = PathEditor::createArrow(
+                QPointF(scenePos.x() - 50, scenePos.y()),
+                QPointF(scenePos.x() + 50, scenePos.y())
+            );
+            DrawingPath *newPath = new DrawingPath();
+            newPath->setPath(arrow);
+            newPath->setPos(0, 0);
+            newPath->setStrokePen(QPen(Qt::black, 2));
+            newPath->setFillBrush(Qt::NoBrush);
+            m_scene->addItem(newPath);
+            m_scene->setModified(true);
+        }
     } else if (selectedAction == starAction) {
-        QPainterPath star = PathEditor::createStar(scenePos, 50, 5);
-        DrawingPath *newPath = new DrawingPath();
-        newPath->setPath(star);
-        newPath->setPos(0, 0);
-        newPath->setStrokePen(QPen(Qt::black, 2));
-        newPath->setFillBrush(QBrush(Qt::yellow));
-        m_scene->addItem(newPath);
-        m_scene->setModified(true);
+        if (m_scene) {
+            QPainterPath star = PathEditor::createStar(scenePos, 50, 5);
+            DrawingPath *newPath = new DrawingPath();
+            newPath->setPath(star);
+            newPath->setPos(0, 0);
+            newPath->setStrokePen(QPen(Qt::black, 2));
+            newPath->setFillBrush(QBrush(Qt::yellow));
+            m_scene->addItem(newPath);
+            m_scene->setModified(true);
+        }
     } else if (selectedAction == gearAction) {
-        QPainterPath gear = PathEditor::createGear(scenePos, 50, 8);
-        DrawingPath *newPath = new DrawingPath();
-        newPath->setPath(gear);
-        newPath->setPos(0, 0);
-        newPath->setStrokePen(QPen(Qt::black, 2));
-        newPath->setFillBrush(QBrush(Qt::gray));
-        m_scene->addItem(newPath);
-        m_scene->setModified(true);
+        if (m_scene) {
+            QPainterPath gear = PathEditor::createGear(scenePos, 50, 8);
+            DrawingPath *newPath = new DrawingPath();
+            newPath->setPath(gear);
+            newPath->setPos(0, 0);
+            newPath->setStrokePen(QPen(Qt::black, 2));
+            newPath->setFillBrush(QBrush(Qt::gray));
+            m_scene->addItem(newPath);
+            m_scene->setModified(true);
+        }
     }
 }
 
@@ -596,6 +570,23 @@ void DrawingToolPathEdit::hideTemporaryMessage()
 {
     // 这个方法可以用于立即隐藏当前显示的消息
     // 由于我们使用了QTimer自动删除，这里暂时不需要额外处理
+}
+
+void DrawingToolPathEdit::updateSelectedPathsFromScene()
+{
+    // 清空当前选择列表
+    m_selectedPaths.clear();
+    
+    // 从场景获取选中的项目
+    if (m_scene) {
+        QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+        for (QGraphicsItem *item : selectedItems) {
+            // 尝试转换为DrawingShape
+            if (auto shape = qgraphicsitem_cast<DrawingShape*>(item)) {
+                m_selectedPaths.append(shape);
+            }
+        }
+    }
 }
 
 #include "drawing-tool-path-edit.moc"

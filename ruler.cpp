@@ -578,17 +578,24 @@ void Ruler::drawSelectionBounds(QPainter *painter)
             painter->drawLine(right - 2, RULER_SIZE - 6, right + 2, RULER_SIZE - 6);
         }
         
-        // 绘制宽度指示器
+        // 绘制宽度指示器mask
         if (left >= 0 && right <= width() && right - left > 10) {
-            int midX = (left + right) / 2;
-            QString widthText = formatNumber(convertToUnit(right - left));
-            QFontMetrics fm(font());
-            int textWidth = fm.horizontalAdvance(widthText);
+            // 绘制mask图形（双向箭头）
+            painter->setPen(QPen(boundsColor, 2.0, Qt::SolidLine));
+            painter->setBrush(Qt::NoBrush);
             
-            if (midX - textWidth/2 >= 0 && midX + textWidth/2 <= width()) {
-                painter->setPen(QPen(boundsColor, 1.0, Qt::SolidLine));
-                painter->drawText(midX - textWidth/2, RULER_SIZE - 10, widthText);
-            }
+            // 左箭头
+            painter->drawLine(left + 5, RULER_SIZE - 12, left + 12, RULER_SIZE - 12);
+            painter->drawLine(left + 5, RULER_SIZE - 12, left + 8, RULER_SIZE - 15);
+            painter->drawLine(left + 5, RULER_SIZE - 12, left + 8, RULER_SIZE - 9);
+            
+            // 右箭头
+            painter->drawLine(right - 5, RULER_SIZE - 12, right - 12, RULER_SIZE - 12);
+            painter->drawLine(right - 5, RULER_SIZE - 12, right - 8, RULER_SIZE - 15);
+            painter->drawLine(right - 5, RULER_SIZE - 12, right - 8, RULER_SIZE - 9);
+            
+            // 连接线
+            painter->drawLine(left + 12, RULER_SIZE - 12, right - 12, RULER_SIZE - 12);
         }
     } else {
         // 垂直标尺：绘制上下边界标记
@@ -607,18 +614,24 @@ void Ruler::drawSelectionBounds(QPainter *painter)
             painter->drawLine(RULER_SIZE - 6, bottom - 2, RULER_SIZE - 6, bottom + 2);
         }
         
-        // 绘制高度指示器
+        // 绘制高度指示器mask
         if (top >= 0 && bottom <= height() && bottom - top > 10) {
-            int midY = (top + bottom) / 2;
-            QString heightText = formatNumber(convertToUnit(bottom - top));
-            QFontMetrics fm(font());
+            // 绘制mask图形（双向箭头）
+            painter->setPen(QPen(boundsColor, 2.0, Qt::SolidLine));
+            painter->setBrush(Qt::NoBrush);
             
-            painter->save();
-            painter->translate(RULER_SIZE - 10, midY);
-            painter->rotate(-90);
-            painter->setPen(QPen(boundsColor, 1.0, Qt::SolidLine));
-            painter->drawText(-fm.horizontalAdvance(heightText)/2, 0, heightText);
-            painter->restore();
+            // 上箭头
+            painter->drawLine(RULER_SIZE - 12, top + 5, RULER_SIZE - 12, top + 12);
+            painter->drawLine(RULER_SIZE - 12, top + 5, RULER_SIZE - 15, top + 8);
+            painter->drawLine(RULER_SIZE - 12, top + 5, RULER_SIZE - 9, top + 8);
+            
+            // 下箭头
+            painter->drawLine(RULER_SIZE - 12, bottom - 5, RULER_SIZE - 12, bottom - 12);
+            painter->drawLine(RULER_SIZE - 12, bottom - 5, RULER_SIZE - 15, bottom - 8);
+            painter->drawLine(RULER_SIZE - 12, bottom - 5, RULER_SIZE - 9, bottom - 8);
+            
+            // 连接线
+            painter->drawLine(RULER_SIZE - 12, top + 12, RULER_SIZE - 12, bottom - 12);
         }
     }
 }

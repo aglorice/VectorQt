@@ -64,9 +64,9 @@ DrawingScene::DrawingScene(QObject *parent)
     , m_gridSize(20)
     , m_gridColor(QColor(200, 200, 200, 100))
     , m_snapEnabled(true)
-    , m_snapTolerance(5)  // 进一步降低网格吸附灵敏度
+    , m_snapTolerance(3)  // 降低网格吸附灵敏度
     , m_objectSnapEnabled(true)
-    , m_objectSnapTolerance(5)  // 进一步降低对象吸附灵敏度
+    , m_objectSnapTolerance(3)  // 降低对象吸附灵敏度
     , m_snapIndicatorsVisible(true)
     , m_guidesEnabled(true)
     , m_guideSnapEnabled(true)
@@ -594,11 +594,9 @@ DrawingScene::ObjectSnapResult DrawingScene::snapToObjects(const QPointF &pos, D
     qreal minDistance = tolerance + 1;
     
     QList<ObjectSnapPoint> snapPoints = getObjectSnapPoints(excludeShape);
-    qDebug() << "snapToObjects: found" << snapPoints.size() << "snap points, tolerance:" << tolerance;
     
     for (const ObjectSnapPoint &snapPoint : snapPoints) {
         qreal distance = QLineF(pos, snapPoint.position).length();
-        qDebug() << "Checking snap point at" << snapPoint.position << "distance:" << distance << "minDistance:" << minDistance;
         if (distance < minDistance) {
             minDistance = distance;
             result.snappedPos = snapPoint.position;
@@ -647,7 +645,6 @@ QList<DrawingScene::ObjectSnapPoint> DrawingScene::getObjectSnapPoints(DrawingSh
 {
     QList<ObjectSnapPoint> points;
     QList<QGraphicsItem*> allItems = items();
-    qDebug() << "getObjectSnapPoints: total items in scene:" << allItems.size() << "excludeShape:" << excludeShape;
     
     for (QGraphicsItem *item : allItems) {
         DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);

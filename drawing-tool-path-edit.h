@@ -46,6 +46,7 @@ private:
     void showContextMenu(const QPointF &scenePos);
     void showTemporaryMessage(const QString &message, const QPointF &pos);
     void hideTemporaryMessage();
+    void updateSelectedPathsFromScene();
     
     EditMode m_editMode;
     PathEditor::BooleanOperation m_booleanOp;

@@ -13,6 +13,7 @@
 #include "drawing-tool-fill.h"
 #include "drawing-tool-line.h"
 #include "drawing-tool-path-edit.h"
+#include "patheditor.h"
 #include "selection-layer.h"
 #include "ruler.h"
 // #include "layermanager.h"  // Not implemented yet
@@ -146,8 +147,8 @@ void MainWindow::setupUI()
     m_scene->setGridAlignmentEnabled(true); // 默认启用网格对齐
     m_scene->setSnapEnabled(true); // 启用智能吸附
     m_scene->setObjectSnapEnabled(true); // 启用对象吸附
-    m_scene->setSnapTolerance(10); // 设置吸附容差
-    m_scene->setObjectSnapTolerance(10); // 设置对象吸附容差
+    m_scene->setSnapTolerance(3); // 设置吸附容差（降低灵敏度）
+    m_scene->setObjectSnapTolerance(3); // 设置对象吸附容差（降低灵敏度）
 
     // Create rulers
     m_horizontalRuler = new Ruler(Ruler::Horizontal, this);
@@ -397,14 +398,34 @@ void MainWindow::setupMenus()
     toolsMenu->addAction(m_rectangleToolAction);
     toolsMenu->addAction(m_ellipseToolAction);
     toolsMenu->addAction(m_bezierToolAction);
-    toolsMenu->addAction(m_nodeEditToolAction);
     toolsMenu->addAction(m_polylineToolAction);
     toolsMenu->addAction(m_polygonToolAction);
     toolsMenu->addAction(m_brushToolAction);
     toolsMenu->addAction(m_fillToolAction);
     toolsMenu->addAction(m_lineToolAction);
-    toolsMenu->addAction(m_pathEditToolAction);
     // toolsMenu->addAction(m_textToolAction);  // Not implemented yet
+
+    // Path menu
+    QMenu *pathMenu = menuBar()->addMenu("&路径");
+    pathMenu->addAction(m_pathEditToolAction);
+    
+    // 添加路径布尔运算操作
+    pathMenu->addSeparator();
+    m_pathUnionAction = new QAction("联合(&U)", this);
+    m_pathUnionAction->setStatusTip("将选中的图形联合成一个路径");
+    pathMenu->addAction(m_pathUnionAction);
+    
+    m_pathSubtractAction = new QAction("减去(&S)", this);
+    m_pathSubtractAction->setStatusTip("从第一个选中图形中减去其他图形");
+    pathMenu->addAction(m_pathSubtractAction);
+    
+    m_pathIntersectAction = new QAction("相交(&I)", this);
+    m_pathIntersectAction->setStatusTip("获取选中图形的相交部分");
+    pathMenu->addAction(m_pathIntersectAction);
+    
+    m_pathXorAction = new QAction("异或(&X)", this);
+    m_pathXorAction->setStatusTip("获取选中图形的异或部分");
+    pathMenu->addAction(m_pathXorAction);
 
     // Help menu
     QMenu *helpMenu = menuBar()->addMenu("&帮助");
@@ -480,12 +501,12 @@ void MainWindow::setupToolbars()
     toolsToolBar->addAction(m_ellipseToolAction);
     toolsToolBar->addAction(m_bezierToolAction);
     toolsToolBar->addAction(m_nodeEditToolAction);
+    toolsToolBar->addAction(m_pathEditToolAction);
     toolsToolBar->addAction(m_polylineToolAction);
     toolsToolBar->addAction(m_polygonToolAction);
     toolsToolBar->addAction(m_brushToolAction);
     toolsToolBar->addAction(m_fillToolAction);
     toolsToolBar->addAction(m_lineToolAction);
-    toolsToolBar->addAction(m_pathEditToolAction);
     // toolsToolBar->addAction(m_textToolAction);  // Not implemented yet
 
     // View toolbar - 包含视图、组合和对齐操作
@@ -782,10 +803,10 @@ void MainWindow::createActions()
     m_lineToolAction->setIcon(QIcon(":/icons/icons/line-tool-new.svg"));
     m_toolGroup->addAction(m_lineToolAction);
 
-    m_pathEditToolAction = new QAction("&路径编辑工具", this);
+    m_pathEditToolAction = new QAction("&路径编辑", this);
     m_pathEditToolAction->setCheckable(true);
     m_pathEditToolAction->setShortcut(QKeySequence("Ctrl+Shift+P"));
-    m_pathEditToolAction->setStatusTip("编辑路径");
+    m_pathEditToolAction->setStatusTip("编辑选中路径的节点");
     m_pathEditToolAction->setIcon(QIcon(":/icons/icons/path-edit-tool-new.svg"));
     m_toolGroup->addAction(m_pathEditToolAction);
 
@@ -794,6 +815,23 @@ void MainWindow::createActions()
     // m_textToolAction->setShortcut(QKeySequence("T"));
     // m_textToolAction->setStatusTip("添加文本");
     // m_toolGroup->addAction(m_textToolAction);
+
+    // Path boolean operations
+    m_pathUnionAction = new QAction("联合(&U)", this);
+    m_pathUnionAction->setStatusTip("将选中的图形联合成一个路径");
+    m_pathUnionAction->setShortcut(QKeySequence("Ctrl+U"));
+    
+    m_pathSubtractAction = new QAction("减去(&S)", this);
+    m_pathSubtractAction->setStatusTip("从第一个选中图形中减去其他图形");
+    m_pathSubtractAction->setShortcut(QKeySequence("Ctrl+S"));
+    
+    m_pathIntersectAction = new QAction("相交(&I)", this);
+    m_pathIntersectAction->setStatusTip("获取选中图形的相交部分");
+    m_pathIntersectAction->setShortcut(QKeySequence("Ctrl+I"));
+    
+    m_pathXorAction = new QAction("异或(&X)", this);
+    m_pathXorAction->setStatusTip("获取选中图形的异或部分");
+    m_pathXorAction->setShortcut(QKeySequence("Ctrl+X"));
 
     // Help actions
     m_aboutAction = new QAction("&关于", this);
@@ -861,6 +899,12 @@ void MainWindow::connectActions()
     connect(m_lineToolAction, &QAction::triggered, this, &MainWindow::lineTool);
     connect(m_pathEditToolAction, &QAction::triggered, this, &MainWindow::pathEditTool);
     // connect(m_textToolAction, &QAction::triggered, this, &MainWindow::textTool);  // Not implemented yet
+    
+    // Path boolean operation connections
+    connect(m_pathUnionAction, &QAction::triggered, this, &MainWindow::pathUnion);
+    connect(m_pathSubtractAction, &QAction::triggered, this, &MainWindow::pathSubtract);
+    connect(m_pathIntersectAction, &QAction::triggered, this, &MainWindow::pathIntersect);
+    connect(m_pathXorAction, &QAction::triggered, this, &MainWindow::pathXor);
 
     // Help connections
     connect(m_aboutAction, &QAction::triggered, this, &MainWindow::about);
@@ -1100,6 +1144,7 @@ void MainWindow::lineTool()
 
 void MainWindow::pathEditTool()
 {
+    // 直接切换到路径编辑工具，让它处理所有逻辑
     setCurrentTool(m_pathEditTool);
 }
 
@@ -1726,6 +1771,12 @@ void MainWindow::onSelectionChanged()
         m_propertyPanel->onSelectionChanged();
     }
     
+    // 更新标尺显示
+    updateRulerSelection();
+}
+
+void MainWindow::updateRulerSelection()
+{
     // 🌟 更新标尺显示选中对象边界
     if (m_scene && m_horizontalRuler && m_verticalRuler) {
         QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
@@ -2208,3 +2259,119 @@ QColor MainWindow::getCurrentFillColor() const
     }
     return Qt::blue; // 默认颜色
 }
+
+// 路径布尔运算槽函数实现
+void MainWindow::pathUnion()
+{
+    performPathBooleanOperation(0, "联合"); // PathEditor::Union = 0
+}
+
+void MainWindow::pathSubtract()
+{
+    performPathBooleanOperation(2, "减去"); // PathEditor::Subtraction = 2
+}
+
+void MainWindow::pathIntersect()
+{
+    performPathBooleanOperation(1, "相交"); // PathEditor::Intersection = 1
+}
+
+void MainWindow::pathXor()
+{
+    performPathBooleanOperation(3, "异或"); // PathEditor::Xor = 3
+}
+
+// 执行路径布尔运算的通用方法
+void MainWindow::performPathBooleanOperation(int op, const QString &opName)
+{
+    if (!m_scene) return;
+    
+    QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
+    if (selectedItems.size() < 2) {
+        m_statusLabel->setText(QString("%1操作需要至少选中2个图形").arg(opName));
+        return;
+    }
+    
+    // 收集所有选中图形的路径
+    QList<QPainterPath> paths;
+    QList<DrawingShape*> shapes;
+    
+    for (QGraphicsItem *item : selectedItems) {
+        DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+        if (shape) {
+            // 获取图形的路径
+            QPainterPath shapePath;
+            
+            // 根据图形类型获取路径
+            if (shape->shapeType() == DrawingShape::Path) {
+                DrawingPath *drawingPath = qgraphicsitem_cast<DrawingPath*>(shape);
+                if (drawingPath) {
+                    shapePath = drawingPath->path();
+                }
+            } else {
+                // 对于其他图形，创建对应的路径
+                QRectF bounds = shape->boundingRect();
+                if (shape->shapeType() == DrawingShape::Rectangle) {
+                    shapePath.addRect(bounds);
+                } else if (shape->shapeType() == DrawingShape::Ellipse) {
+                    shapePath.addEllipse(bounds);
+                }
+                // 可以添加更多图形类型的支持
+            }
+            
+            if (!shapePath.isEmpty()) {
+                paths.append(shapePath);
+                shapes.append(shape);
+            }
+        }
+    }
+    
+    if (paths.size() < 2) {
+        m_statusLabel->setText(QString("没有找到可进行%1操作的图形").arg(opName));
+        return;
+    }
+    
+    // 执行布尔运算
+    QPainterPath resultPath = paths[0];
+    for (int i = 1; i < paths.size(); ++i) {
+        resultPath = PathEditor::booleanOperation(resultPath, paths[i], static_cast<PathEditor::BooleanOperation>(op));
+    }
+    
+    if (resultPath.isEmpty()) {
+        m_statusLabel->setText(QString("%1操作结果为空").arg(opName));
+        return;
+    }
+    
+    // 创建新的路径图形
+    DrawingPath *newPath = new DrawingPath();
+    newPath->setPath(resultPath);
+    
+    // 设置新图形的位置和样式
+    if (!shapes.isEmpty()) {
+        // 使用第一个图形的位置
+        newPath->setPos(shapes.first()->pos());
+        
+        // 使用第一个图形的样式
+        newPath->setFillBrush(shapes.first()->fillBrush());
+        newPath->setStrokePen(shapes.first()->strokePen());
+    }
+    
+    // 添加到场景
+    m_scene->addItem(newPath);
+    
+    // 删除原始图形
+    for (DrawingShape *shape : shapes) {
+        m_scene->removeItem(shape);
+        delete shape;
+    }
+    
+    // 选中新创建的图形
+    newPath->setSelected(true);
+    
+    // 标记场景已修改
+    m_scene->setModified(true);
+    
+    m_statusLabel->setText(QString("%1操作完成").arg(opName));
+}
+
+

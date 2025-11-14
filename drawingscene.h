@@ -155,6 +155,9 @@ protected:
 private slots:
     void onSelectionChanged();
 
+public:
+    void emitSelectionChanged() { emit selectionChanged(); }
+
 private:
     void drawGrid(QPainter *painter, const QRectF &rect);
     

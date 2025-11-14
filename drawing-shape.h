@@ -38,9 +38,7 @@ public:
         Group
     };
     
-    
-    
-    public:
+public:
     DrawingShape(ShapeType type, QGraphicsItem *parent = nullptr);
     ~DrawingShape();
     

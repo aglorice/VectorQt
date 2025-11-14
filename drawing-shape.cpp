@@ -9,6 +9,7 @@
 #include <QStyleOptionGraphicsItem>
 #include <QDebug>
 #include <QGraphicsScene>
+#include <QTimer>
 
 // DrawingShape
 DrawingShape::DrawingShape(ShapeType type, QGraphicsItem *parent)
@@ -63,6 +64,17 @@ void DrawingShape::setTransform(const DrawingTransform &transform)
     prepareGeometryChange();
     m_transform = transform;
     update();
+    
+    // 如果形状被选中，通知场景选择已变化（这会触发标尺更新）
+    if (isSelected() && scene()) {
+        // 延迟通知，避免在变换过程中频繁更新
+        QTimer::singleShot(0, [this]() {
+            if (scene()) {
+                // 发出选择变化信号
+                static_cast<DrawingScene*>(scene())->emitSelectionChanged();
+            }
+        });
+    }
     
     // 通知文档对象已修改
     if (m_document) {
@@ -237,7 +249,16 @@ QVariant DrawingShape::itemChange(GraphicsItemChange change, const QVariant &val
             m_handleManager->updateHandles();
         }
         
-        // 位置变化，不需要发射信号
+        // 如果形状被选中，通知场景选择已变化（这会触发标尺更新）
+        if (isSelected() && scene()) {
+            // 延迟通知，避免在变换过程中频繁更新
+            QTimer::singleShot(0, [this]() {
+                if (scene()) {
+                    // 发出选择变化信号
+                    static_cast<DrawingScene*>(scene())->emitSelectionChanged();
+                }
+            });
+        }
     } else if (change == ItemParentHasChanged) {
         // 父项改变时更新手柄状态
         if (m_handleManager) {
@@ -331,7 +352,11 @@ void DrawingRectangle::setNodePoint(int index, const QPointF &pos)
     switch (index) {
         case 0: {
             // 圆角控制：简单的距离控制，实时更新
+            // 将场景坐标转换为本地坐标，考虑DrawingTransform
             QPointF localPos = mapFromScene(pos);
+            // 应用DrawingTransform的逆变换来获取真正的本地坐标
+            localPos = m_transform.transform().inverted().map(localPos);
+            
             qreal distance = localPos.x() - m_rect.left();
             qreal maxRadius = qMin(m_rect.width(), m_rect.height()) / 2.0;
             m_cornerRadius = qBound(0.0, distance, maxRadius);
@@ -340,7 +365,11 @@ void DrawingRectangle::setNodePoint(int index, const QPointF &pos)
         }
         case 1: {
             // 尺寸控制：简单的右下角拖动，实时更新
+            // 将场景坐标转换为本地坐标，考虑DrawingTransform
             QPointF localPos = mapFromScene(pos);
+            // 应用DrawingTransform的逆变换来获取真正的本地坐标
+            localPos = m_transform.transform().inverted().map(localPos);
+            
             QRectF newRect = m_rect;
             newRect.setRight(localPos.x());
             newRect.setBottom(localPos.y());
@@ -515,8 +544,10 @@ QVector<QPointF> DrawingEllipse::getNodePoints() const
 
 void DrawingEllipse::setNodePoint(int index, const QPointF &pos)
 {
-    // 将场景坐标转换为本地坐标
+    // 将场景坐标转换为本地坐标，考虑DrawingTransform
     QPointF localPos = mapFromScene(pos);
+    // 应用DrawingTransform的逆变换来获取真正的本地坐标
+    localPos = m_transform.transform().inverted().map(localPos);
     
     switch (index) {
         case 0: {
@@ -1003,10 +1034,28 @@ void DrawingPath::paintShape(QPainter *painter)
         painter->setPen(pointPen);
         painter->setBrush(pointBrush);
         
-        // 绘制所有控制点为圆形
-        const qreal pointRadius = 4.0; // 控制点半径，加大1个像素
+        // 绘制所有控制点为圆形 - 使用固定大小，不受缩放影响
+        const qreal pointRadius = 4.0; // 控制点半径
         for (const QPointF &point : m_controlPoints) {
-            painter->drawEllipse(point, pointRadius, pointRadius);
+            // 保存当前变换状态
+            painter->save();
+            
+            // 获取当前变换的缩放因子
+            QTransform currentTransform = painter->transform();
+            
+            // 计算缩放因子（使用变换矩阵的缩放部分）
+            qreal scaleX = qSqrt(currentTransform.m11() * currentTransform.m11() + currentTransform.m21() * currentTransform.m21());
+            qreal scaleY = qSqrt(currentTransform.m12() * currentTransform.m12() + currentTransform.m22() * currentTransform.m22());
+            
+            // 移动到控制点位置并应用反向缩放
+            painter->translate(point);
+            painter->scale(1.0/qMax(scaleX, 0.01), 1.0/qMax(scaleY, 0.01));
+            
+            // 绘制固定大小的圆
+            painter->drawEllipse(QPointF(0, 0), pointRadius, pointRadius);
+            
+            // 恢复变换状态
+            painter->restore();
         }
         
         // 恢复原始画笔和画刷
