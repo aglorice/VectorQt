@@ -76,7 +76,7 @@ bool DrawingToolPolygon::mouseMoveEvent(QMouseEvent *event, const QPointF &scene
     if (m_drawing && m_currentPolygon) {
         // 更新最后一个预览点的位置
         if (m_currentPolygon->pointCount() > 1) {
-            m_currentPolygon->setPoint(m_currentPolygon->pointCount() - 1, scenePos);
+            m_currentPolygon->setPoint(m_currentPolygon->pointCount()-1, scenePos);
         }
         return true;
     }

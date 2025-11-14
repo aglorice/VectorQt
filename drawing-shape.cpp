@@ -10,6 +10,7 @@
 #include <QDebug>
 #include <QGraphicsScene>
 #include <QTimer>
+#include <QPointer>
 
 // DrawingShape
 DrawingShape::DrawingShape(ShapeType type, QGraphicsItem *parent)
@@ -252,10 +253,12 @@ QVariant DrawingShape::itemChange(GraphicsItemChange change, const QVariant &val
         // 如果形状被选中，通知场景选择已变化（这会触发标尺更新）
         if (isSelected() && scene()) {
             // 延迟通知，避免在变换过程中频繁更新
-            QTimer::singleShot(0, [this]() {
-                if (scene()) {
+            // 使用QPointer确保对象仍然存在
+            QPointer<DrawingScene> sceneRef = static_cast<DrawingScene*>(scene());
+            QTimer::singleShot(0, [sceneRef]() {
+                if (sceneRef && !sceneRef.isNull()) {
                     // 发出选择变化信号
-                    static_cast<DrawingScene*>(scene())->emitSelectionChanged();
+                    sceneRef->emitSelectionChanged();
                 }
             });
         }
@@ -947,14 +950,21 @@ void DrawingPath::updatePathFromControlPoints()
     QPainterPath newPath;
     
     // 根据控制点类型重建路径
-    for (int i = 0; i < m_controlPoints.size(); ++i) {
+    for (int i = 0; i < m_controlPoints.size(); ) {
+        // 确保索引在有效范围内
+        if (i >= m_controlPointTypes.size()) {
+            break;
+        }
+        
         QPainterPath::ElementType type = m_controlPointTypes[i];
         QPointF point = m_controlPoints[i];
         
         if (type == QPainterPath::MoveToElement) {
             newPath.moveTo(point);
+            i++;
         } else if (type == QPainterPath::LineToElement) {
             newPath.lineTo(point);
+            i++;
         } else if (type == QPainterPath::CurveToElement) {
             // 曲线需要3个点：当前点和接下来的两个点
             if (i + 2 < m_controlPoints.size() && 
@@ -962,10 +972,18 @@ void DrawingPath::updatePathFromControlPoints()
                 m_controlPointTypes[i + 1] == QPainterPath::CurveToDataElement &&
                 m_controlPointTypes[i + 2] == QPainterPath::CurveToDataElement) {
                 newPath.cubicTo(point, m_controlPoints[i + 1], m_controlPoints[i + 2]);
-                i += 2; // 跳过已经处理的两个控制点
+                i += 3; // 跳过已经处理的三个控制点
+            } else {
+                // 数据不完整，跳过当前点
+                i++;
             }
+        } else if (type == QPainterPath::CurveToDataElement) {
+            // 孤立的数据点，跳过
+            i++;
+        } else {
+            // 未知类型，跳过
+            i++;
         }
-        // CurveToDataElement在CurveToElement处理时已经考虑
     }
     
     // 直接更新内部路径，不调用setPath避免无限循环
@@ -1283,8 +1301,8 @@ DrawingLine::DrawingLine(const QLineF &line, QGraphicsItem *parent)
     : DrawingShape(Line, parent)
     , m_line(line)
 {
-    setFlag(QGraphicsItem::ItemIsSelectable, true);
-    setFlag(QGraphicsItem::ItemIsMovable, true);
+    //setFlag(QGraphicsItem::ItemIsSelectable, true);
+    //setFlag(QGraphicsItem::ItemIsMovable, true);
 }
 
 QRectF DrawingLine::localBounds() const

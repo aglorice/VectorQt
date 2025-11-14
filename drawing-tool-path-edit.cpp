@@ -10,6 +10,7 @@
 #include <QAction>
 #include <QTimer>
 #include <QDebug>
+#include <QPointer>
 
 DrawingToolPathEdit::DrawingToolPathEdit(QObject *parent)
     : ToolBase(parent)
@@ -558,11 +559,15 @@ void DrawingToolPathEdit::showTemporaryMessage(const QString &message, const QPo
     m_scene->addItem(textItem);
     
     // 使用QTimer在3秒后自动删除
-    QTimer::singleShot(3000, [textItem]() {
-        if (textItem->scene()) {
-            textItem->scene()->removeItem(textItem);
+    // 使用QPointer确保对象仍然存在
+    QPointer<QGraphicsTextItem> textItemRef(textItem);
+    QTimer::singleShot(3000, [textItemRef]() {
+        if (textItemRef && !textItemRef.isNull()) {
+            if (textItemRef->scene()) {
+                textItemRef->scene()->removeItem(textItemRef);
+            }
+            delete textItemRef;
         }
-        delete textItem;
     });
 }
 

@@ -11,6 +11,9 @@ class DrawingToolPolyline : public ToolBase
 public:
     explicit DrawingToolPolyline(QObject *parent = nullptr);
     
+    // 获取工具光标类型
+    CursorManager::CursorType getCursorType() const override { return CursorManager::PolylineCursor; }
+    
     void activate(DrawingScene *scene, DrawingView *view) override;
     void deactivate() override;
     

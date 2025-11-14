@@ -60,7 +60,7 @@ bool DrawingToolBrush::mousePressEvent(QMouseEvent *event, const QPointF &sceneP
         // 添加到场景
         m_scene->addItem(m_currentPath);
         m_scene->clearSelection();
-        m_currentPath->setSelected(true);
+        //m_currentPath->setSelected(true);
         
         return true;
     }

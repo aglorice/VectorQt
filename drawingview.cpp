@@ -113,17 +113,6 @@ void DrawingView::mouseReleaseEvent(QMouseEvent *event)
     QGraphicsView::mouseReleaseEvent(event);
 }
 
-void DrawingView::resizeEvent(QResizeEvent *event)
-{
-    QGraphicsView::resizeEvent(event);
-}
-
-void DrawingView::paintEvent(QPaintEvent *event)
-{
-    QGraphicsView::paintEvent(event);
-    
-}
-
 void DrawingView::scrollContentsBy(int dx, int dy)
 {
     QGraphicsView::scrollContentsBy(dx, dy);

@@ -52,7 +52,7 @@ void CursorManager::createCursors()
     m_cursors[BezierCursor] = QCursor(createCrosshairWithShape(BezierCursor), hotSpotX, hotSpotY);
     m_cursors[PolygonCursor] = QCursor(createCrosshairWithShape(PolygonCursor), hotSpotX, hotSpotY);
     m_cursors[PolylineCursor] = QCursor(createCrosshairWithShape(PolylineCursor), hotSpotX, hotSpotY);
-    m_cursors[BrushCursor] = QCursor(createCrosshairWithShape(BrushCursor), hotSpotX, hotSpotY);
+    m_cursors[BrushCursor] = QCursor(Qt::CrossCursor);
     m_cursors[FillCursor] = QCursor(Qt::PointingHandCursor);
     m_cursors[NodeEditCursor] = QCursor(Qt::CrossCursor);
     m_cursors[PathEditCursor] = QCursor(createCrosshairWithShape(PathEditCursor), hotSpotX, hotSpotY);

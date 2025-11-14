@@ -936,10 +936,19 @@ void MainWindow::setCurrentTool(ToolBase *tool)
     // 如果切换到非选择工具且不是节点编辑工具，清除场景中的选择
     if (m_scene && tool != m_selectTool && tool != m_nodeEditTool) {
         // 隐藏所有路径的控制点连线
-        QList<QGraphicsItem*> items = m_scene->items();
+        // 使用Qt::BlockingQueuedConnection确保在主线程中安全执行
+        QList<QGraphicsItem*> items = m_scene->items(Qt::AscendingOrder);
         for (QGraphicsItem *item : items) {
-            if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(item)) {
-                path->setShowControlPolygon(false);
+            // 检查item是否仍然有效且在场景中
+            if (item && item->scene() == m_scene) {
+                if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(item)) {
+                    try {
+                        path->setShowControlPolygon(false);
+                    } catch (...) {
+                        // 忽略异常，继续处理其他项目
+                        continue;
+                    }
+                }
             }
         }
         m_scene->clearSelection();

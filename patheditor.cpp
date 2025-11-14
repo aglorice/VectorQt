@@ -75,6 +75,15 @@ QPainterPath PathEditor::simplifyPath(const QPainterPath &path, qreal tolerance)
         return path;
     }
     
+    // 对于画笔路径（密集的直线段），使用非常小的容差值
+    qreal adjustedTolerance = tolerance;
+    // 根据路径点密度调整容差
+    if (path.elementCount() > 50) {
+        adjustedTolerance = qMin(tolerance, 0.5); // 密集路径使用较小容差
+    } else {
+        adjustedTolerance = qMin(tolerance, 2.0); // 稀疏路径可以稍大容差
+    }
+    
     // 将路径转换为点列表
     QList<QPointF> points;
     for (int i = 0; i < path.elementCount(); ++i) {
@@ -85,16 +94,59 @@ QPainterPath PathEditor::simplifyPath(const QPainterPath &path, qreal tolerance)
         }
     }
     
+    // 如果点数太少，直接返回
+    if (points.size() < 3) {
+        return path;
+    }
+    
     // 使用Douglas-Peucker算法简化
-    QList<QPointF> simplified = douglasPeucker(points, tolerance);
+    QList<QPointF> simplifiedPoints = douglasPeucker(points, adjustedTolerance);
+    
+    // 确保保留足够的点以维持形状
+    int minPoints = qMax(3, points.size() / 10); // 至少保留10%的点
+    if (simplifiedPoints.size() < minPoints) {
+        // 如果简化后的点太少，使用均匀采样
+        simplifiedPoints.clear();
+        int step = points.size() / minPoints;
+        for (int i = 0; i < points.size(); i += step) {
+            simplifiedPoints.append(points[i]);
+        }
+        // 确保包含最后一个点
+        if (simplifiedPoints.last() != points.last()) {
+            simplifiedPoints.append(points.last());
+        }
+    }
     
     // 重建路径
     QPainterPath result;
-    if (simplified.size() > 0) {
-        result.moveTo(simplified[0]);
-        for (int i = 1; i < simplified.size(); ++i) {
-            result.lineTo(simplified[i]);
+    if (simplifiedPoints.size() > 0) {
+        result.moveTo(simplifiedPoints[0]);
+        
+        // 对于画笔路径，使用平滑的连接
+        if (simplifiedPoints.size() > 2) {
+            for (int i = 1; i < simplifiedPoints.size(); ++i) {
+                if (i == simplifiedPoints.size() - 1) {
+                    // 最后一个点，直接连接
+                    result.lineTo(simplifiedPoints[i]);
+                } else {
+                    // 使用二次贝塞尔曲线创建平滑过渡
+                    QPointF prev = simplifiedPoints[i-1];
+                    QPointF curr = simplifiedPoints[i];
+                    QPointF next = simplifiedPoints[i+1];
+                    
+                    // 计算控制点，使曲线更平滑
+                    QPointF control1 = prev + (curr - prev) * 0.7;
+                    QPointF control2 = curr + (next - curr) * 0.3;
+                    QPointF midPoint = (control1 + control2) * 0.5;
+                    
+                    result.quadTo(midPoint, curr);
+                }
+            }
+        } else {
+            // 只有两个点，直接连接
+            result.lineTo(simplifiedPoints[1]);
         }
+        
         if (path.fillRule() == Qt::WindingFill) {
             result.closeSubpath();
         }

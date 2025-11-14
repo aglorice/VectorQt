@@ -11,6 +11,9 @@ class DrawingToolPolygon : public ToolBase
 public:
     explicit DrawingToolPolygon(QObject *parent = nullptr);
     
+    // 获取工具光标类型
+    CursorManager::CursorType getCursorType() const override { return CursorManager::PolygonCursor; }
+    
     void activate(DrawingScene *scene, DrawingView *view) override;
     void deactivate() override;
     
