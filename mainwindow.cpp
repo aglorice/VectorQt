@@ -29,6 +29,7 @@
 #include <QApplication>
 #include <QMimeData>
 #include <QMenu>
+#include <QTimer>
 #include <QToolBar>
 #include <QStatusBar>
 #include <QLabel>
@@ -929,19 +930,25 @@ void MainWindow::connectActions()
 
 void MainWindow::setCurrentTool(ToolBase *tool)
 {
-    // qDebug() << "setCurrentTool called with tool:" << tool;
+    qDebug() << "setCurrentTool called with tool:" << tool;
 
     if (m_currentTool)
     {
-        // qDebug() << "Deactivating current tool:" << m_currentTool;
+        qDebug() << "Deactivating current tool:" << m_currentTool;
         m_currentTool->deactivate();
     }
 
-    m_currentTool = tool;
+    // 如果有正在进行的变换操作，先结束它
+    if (m_scene) {
+        qDebug() << "Calling endTransform() before tool switch";
+        m_scene->endTransform();
+    }
+
+        m_currentTool = tool;
 
     if (m_currentTool)
     {
-        // qDebug() << "Activating new tool:" << m_currentTool;
+        qDebug() << "Activating new tool:" << m_currentTool;
         DrawingView *drawingView = qobject_cast<DrawingView *>(m_canvas->view());
         m_currentTool->activate(m_scene, drawingView);
         if (drawingView)
@@ -949,27 +956,64 @@ void MainWindow::setCurrentTool(ToolBase *tool)
             drawingView->setCurrentTool(m_currentTool);
         }
     }
-
-    // 如果切换到非选择工具且不是节点编辑工具，清除场景中的选择
+    
+    // 如果切换到非选择工具且不是节点编辑工具，在工具激活后清除场景中的选择
     if (m_scene && tool != m_selectTool && tool != m_nodeEditTool) {
-        // 隐藏所有路径的控制点连线
-        // 使用Qt::BlockingQueuedConnection确保在主线程中安全执行
-        QList<QGraphicsItem*> items = m_scene->items(Qt::AscendingOrder);
-        for (QGraphicsItem *item : items) {
-            // 检查item是否仍然有效且在场景中
-            if (item && item->scene() == m_scene) {
-                if (DrawingPath *path = qgraphicsitem_cast<DrawingPath*>(item)) {
-                    try {
-                        path->setShowControlPolygon(false);
-                    } catch (...) {
-                        // 忽略异常，继续处理其他项目
-                        continue;
-                    }
+        qDebug() << "Clearing selection after switching to non-select tool";
+        qDebug() << "Selected items count before clearing:" << m_scene->selectedItems().count();
+        
+        // 在工具激活后清除场景中的选择
+        if (m_scene) {
+            qDebug() << "Clearing selection after switching to non-select tool";
+            qDebug() << "Selected items count before clearing:" << m_scene->selectedItems().count();
+            
+            // 检查并取消鼠标抓取
+            if (m_scene->mouseGrabberItem()) {
+                qDebug() << "Found mouse grabber item, ungrabbing";
+                m_scene->mouseGrabberItem()->ungrabMouse();
+            }
+            
+            m_scene->clearSelection();
+            
+            // 强制清除所有项目的选中状态
+            QList<QGraphicsItem*> allItems = m_scene->items(Qt::AscendingOrder);
+            for (QGraphicsItem *item : allItems) {
+                if (item && item->isSelected()) {
+                    item->setSelected(false);
                 }
             }
+            
+            // 隐藏所有路径的控制点连线
+            QList<QGraphicsItem*> items = m_scene->items(Qt::AscendingOrder);
+            for (QGraphicsItem *item : items) {
+                // 检查item是否仍然有效且在场景中
+                if (!item || item->scene() != m_scene) {
+                    continue;
+                }
+                
+                // 首先验证类型
+                if (item->type() != DrawingShape::Path) {
+                    continue;
+                }
+                
+                // 使用更安全的类型转换，并验证对象状态
+                DrawingPath *path = nullptr;
+                try {
+                    path = qgraphicsitem_cast<DrawingPath*>(item);
+                    // 额外验证：检查对象是否已被删除或无效
+                    if (path && path->type() == DrawingShape::Path) {
+                        path->setShowControlPolygon(false);
+                    }
+                } catch (...) {
+                    // 忽略异常，继续处理其他项目
+                    continue;
+                }
+            }
+            
+            qDebug() << "Selected items count after clearing:" << m_scene->selectedItems().count();
         }
-        m_scene->clearSelection();
     }
+
 
     // Update tool actions
     if (tool == m_selectTool)
@@ -994,16 +1038,19 @@ void MainWindow::setCurrentTool(ToolBase *tool)
         m_nodeEditToolAction->setChecked(true);
     }
 
-    m_statusLabel->setText(QString("工具已更改: %1").arg(tool == m_selectTool ? "选择" : tool == m_rectangleTool ? "矩形"
-                                                                                     : tool == m_ellipseTool     ? "椭圆"
-                                                                                     : tool == m_bezierTool      ? "贝塞尔"
-                                                                                     
-                                                                                     : tool == m_nodeEditTool    ? "节点编辑"
-                                                                                                                 :
-                                                                                                             // tool == m_lineTool ? "线条" :       // Not implemented yet
-                                                                                         // tool == m_polygonTool ? "多边形" : // Not implemented yet
-                                                                                         tool ? "未知"
-                                                                                              : "未知")); // Simplified since TextTool is not implemented
+    m_statusLabel->setText(QString("工具已更改: %1")
+    .arg(tool == m_selectTool ? "选择" : tool == m_rectangleTool ? "矩形"
+                                    : tool == m_ellipseTool     ? "椭圆"
+                                    : tool == m_bezierTool      ? "贝塞尔"
+                                    
+                                    : tool == m_nodeEditTool    ? "节点编辑"
+                                                                :
+                                                            // tool == m_lineTool ? "线条" :       // Not implemented yet
+                                        // tool == m_polygonTool ? "多边形" : // Not implemented yet
+                                        tool ? "未知"
+                                            : "未知")); // Simplified since TextTool is not implemented
+
+    qDebug() << "Tool switch completed";
 }
 
 
@@ -1012,7 +1059,7 @@ void MainWindow::newFile()
 {
     if (m_isModified)
     {
-        QMessageBox::StandardButton reply = QMessageBox::question(this, "QDrawPro",
+        QMessageBox::StandardButton reply = QMessageBox::question(this, "VectorFlow",
                                                                   "文档已修改，是否保存？",
                                                                   QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
 

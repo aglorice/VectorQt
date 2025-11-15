@@ -114,6 +114,11 @@ public:
 protected:
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
     
+    // 鼠标事件处理（用于跟踪移动）
+    void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+    
     // 子类需要实现的绘制方法（在本地坐标系中）
     virtual void paintShape(QPainter *painter) = 0;
     
@@ -135,6 +140,11 @@ protected:
     
     // 避免递归吸附的标志
     bool m_applyingSnap = false;
+    
+    // 移动跟踪
+    bool m_isMoving = false;
+    bool m_transformStarted = false;
+    QPointF m_moveStartPos;
 };
 
 // DrawingRectangle

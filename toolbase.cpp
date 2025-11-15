@@ -295,21 +295,28 @@ bool LegacyRectangleTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &s
                 if (m_scene) {
                     m_scene->setModified(true);
                     
-                    // 使用DrawingScene中的AddItemCommand
-                    class AddItemCommand : public QUndoCommand
+                    // 创建一个简单的撤销命令，因为项目已经在场景中
+                    class SimpleAddCommand : public QUndoCommand
                     {
                     public:
-                        AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
+                        SimpleAddCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
                             : QUndoCommand("添加矩形", parent), m_scene(scene), m_item(item) {}
                         
                         void undo() override {
-                            m_scene->removeItem(m_item);
-                            m_item->setVisible(false);
+                            if (m_item && m_item->scene() == m_scene) {
+                                m_scene->removeItem(m_item);
+                                m_item->setVisible(false);
+                            }
                         }
                         
                         void redo() override {
-                            m_scene->addItem(m_item);
-                            m_item->setVisible(true);
+                            if (m_item) {
+                                // 确保项目在场景中
+                                if (m_item->scene() != m_scene) {
+                                    m_scene->addItem(m_item);
+                                }
+                                m_item->setVisible(true);
+                            }
                         }
                         
                     private:
@@ -318,7 +325,7 @@ bool LegacyRectangleTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &s
                     };
                     
                     // 创建并推送撤销命令
-                    AddItemCommand *command = new AddItemCommand(m_scene, m_currentItem);
+                    SimpleAddCommand *command = new SimpleAddCommand(m_scene, m_currentItem);
                     m_scene->undoStack()->push(command);
                 }
                 // 重要：将所有权转移给场景，不再由工具管理
@@ -342,11 +349,15 @@ LegacyEllipseTool::LegacyEllipseTool(QObject *parent)
 
 void LegacyEllipseTool::activate(DrawingScene *scene, DrawingView *view)
 {
+    qDebug() << "LegacyEllipseTool::activate called, scene:" << scene << "view:" << view;
+    
     ToolBase::activate(scene, view);
     // 初始化状态
     m_drawing = false;
     m_currentItem = nullptr;
     m_previewItem = nullptr;
+    
+    qDebug() << "LegacyEllipseTool::activate completed";
 }
 
 void LegacyEllipseTool::deactivate()
@@ -493,21 +504,28 @@ bool LegacyEllipseTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &sce
                 if (m_scene) {
                     m_scene->setModified(true);
                     
-                    // 使用DrawingScene中的AddItemCommand
-                    class AddItemCommand : public QUndoCommand
+                    // 创建一个简单的撤销命令，因为项目已经在场景中
+                    class SimpleAddCommand : public QUndoCommand
                     {
                     public:
-                        AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
+                        SimpleAddCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
                             : QUndoCommand("添加椭圆", parent), m_scene(scene), m_item(item) {}
                         
                         void undo() override {
-                            m_scene->removeItem(m_item);
-                            m_item->setVisible(false);
+                            if (m_item && m_item->scene() == m_scene) {
+                                m_scene->removeItem(m_item);
+                                m_item->setVisible(false);
+                            }
                         }
                         
                         void redo() override {
-                            m_scene->addItem(m_item);
-                            m_item->setVisible(true);
+                            if (m_item) {
+                                // 确保项目在场景中
+                                if (m_item->scene() != m_scene) {
+                                    m_scene->addItem(m_item);
+                                }
+                                m_item->setVisible(true);
+                            }
                         }
                         
                     private:
@@ -516,7 +534,7 @@ bool LegacyEllipseTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &sce
                     };
                     
                     // 创建并推送撤销命令
-                    AddItemCommand *command = new AddItemCommand(m_scene, m_currentItem);
+                    SimpleAddCommand *command = new SimpleAddCommand(m_scene, m_currentItem);
                     m_scene->undoStack()->push(command);
                 }
                 m_currentItem = nullptr;

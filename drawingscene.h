@@ -3,16 +3,26 @@
 
 #include <QGraphicsScene>
 #include <QUndoStack>
+#include "drawing-transform.h"
 
 class DrawingShape;
 class DrawingGroup;
+class QGraphicsSceneMouseEvent;
 class SelectionLayer;
+class TransformCommand;
 
 class DrawingScene : public QGraphicsScene
 {
     Q_OBJECT
 
 public:
+    // TransformState 结构体需要在 TransformCommand 类之前定义
+    struct TransformState {
+        QPointF position;
+        DrawingTransform transform;
+        qreal rotation;
+    };
+    
     explicit DrawingScene(QObject *parent = nullptr);
     
     QUndoStack* undoStack() { return &m_undoStack; }
@@ -29,6 +39,17 @@ public:
     // 激活/停用选择工具时调用
     void activateSelectionTool();
     void deactivateSelectionTool();
+    
+    // 变换撤销支持
+    enum TransformType {
+        Move,
+        Scale,
+        Rotate,
+        Generic
+    };
+    
+    void beginTransform(TransformType type = Generic);
+    void endTransform();
     
     // 网格功能
     void setGridVisible(bool visible);
@@ -184,6 +205,13 @@ private:
     bool m_guidesEnabled;
     bool m_guideSnapEnabled;
     QList<Guide> m_guides;
+    
+    // 变换撤销支持
+    QList<TransformState> m_transformOldStates;
+    QList<DrawingShape*> m_transformShapes;  // 保存变换时的图形引用
+    TransformType m_currentTransformType;
+    
+    
 };
 
 #endif // DRAWINGSCENE_H

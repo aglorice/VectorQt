@@ -19,6 +19,8 @@ DrawingShape::DrawingShape(ShapeType type, QGraphicsItem *parent)
     , m_fillBrush(Qt::white)
     , m_strokePen(QPen(Qt::black, 1.0))
     , m_showSelectionIndicator(true)
+    , m_isMoving(false)
+    , m_moveStartPos(0, 0)
 {
     setFlags(QGraphicsItem::ItemIsSelectable | 
              QGraphicsItem::ItemIsMovable | 
@@ -265,6 +267,52 @@ QVariant DrawingShape::itemChange(GraphicsItemChange change, const QVariant &val
     }
     
     return QGraphicsItem::itemChange(change, value);
+}
+
+void DrawingShape::mousePressEvent(QGraphicsSceneMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && flags() & ItemIsMovable) {
+        m_isMoving = true;
+        m_moveStartPos = pos();
+        // 不在这里调用beginTransform，延迟到实际移动时
+    }
+    
+    QGraphicsItem::mousePressEvent(event);
+}
+
+void DrawingShape::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
+{
+    // 检查是否正在拖动且尚未开始变换操作
+    if (m_isMoving && !m_transformStarted) {
+        QPointF currentPos = pos();
+        // 如果有实际移动（超过阈值），开始变换操作
+        if (qAbs(currentPos.x() - m_moveStartPos.x()) > 1.0 || 
+            qAbs(currentPos.y() - m_moveStartPos.y()) > 1.0) {
+            if (DrawingScene *scene = qobject_cast<DrawingScene*>(this->scene())) {
+                scene->beginTransform(DrawingScene::Move);
+                m_transformStarted = true;
+            }
+        }
+    }
+    
+    QGraphicsItem::mouseMoveEvent(event);
+}
+
+void DrawingShape::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && m_isMoving) {
+        m_isMoving = false;
+        
+        // 只有当变换操作已经开始时才结束它
+        if (m_transformStarted) {
+            if (DrawingScene *scene = qobject_cast<DrawingScene*>(this->scene())) {
+                scene->endTransform();
+            }
+            m_transformStarted = false;
+        }
+    }
+    
+    QGraphicsItem::mouseReleaseEvent(event);
 }
 
 // DrawingRectangle
@@ -829,7 +877,7 @@ void DrawingPath::mousePressEvent(QGraphicsSceneMouseEvent *event)
     }
     
     // 如果没有点击控制点，传递给基类处理
-    QGraphicsItem::mousePressEvent(event);
+    DrawingShape::mousePressEvent(event);
 }
 
 void DrawingPath::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
@@ -871,7 +919,7 @@ void DrawingPath::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
     }
     
     // 如果没有拖动控制点，传递给基类处理
-    QGraphicsItem::mouseReleaseEvent(event);
+    DrawingShape::mouseReleaseEvent(event);
 }
 
 int DrawingPath::findNearestControlPoint(const QPointF &scenePos) const

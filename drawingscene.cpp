@@ -8,21 +8,55 @@
 #include <QKeyEvent>
 #include <QUndoCommand>
 #include <QPainter>
+#include <QDebug>
 
 class AddItemCommand : public QUndoCommand
 {
 public:
     AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
-        : QUndoCommand("添加项目", parent), m_scene(scene), m_item(item) {}
+        : QUndoCommand("添加项目", parent), m_scene(scene), m_item(item) 
+    {
+        // 确保项目在场景中
+        if (m_item && m_item->scene() != m_scene) {
+            m_scene->addItem(m_item);
+        }
+        if (m_item) {
+            m_item->setVisible(true);
+        }
+        qDebug() << "AddItemCommand created, item:" << m_item;
+    }
     
     void undo() override {
-        m_scene->removeItem(m_item);
-        m_item->setVisible(false);
+        if (m_item && m_item->scene() == m_scene) {
+            m_scene->removeItem(m_item);
+            m_item->setVisible(false);
+            qDebug() << "AddItemCommand::undo - removed item from scene";
+        } else {
+            qDebug() << "AddItemCommand::undo - item not in scene or null";
+        }
     }
     
     void redo() override {
-        m_scene->addItem(m_item);
-        m_item->setVisible(true);
+        qDebug() << "AddItemCommand::redo called, m_item:" << m_item << "m_scene:" << m_scene;
+        
+        if (m_item && m_scene) {
+            // 强制添加到场景，即使检查失败也要尝试
+            try {
+                // 先从当前场景移除（如果在某个场景中）
+                if (m_item->scene()) {
+                    m_item->scene()->removeItem(m_item);
+                }
+                // 添加到目标场景
+                m_scene->addItem(m_item);
+                m_item->setVisible(true);
+                qDebug() << "AddItemCommand::redo - successfully added item to scene";
+            } catch (...) {
+                qDebug() << "AddItemCommand::redo - exception occurred";
+                // 即使失败也不返回，让命令看起来成功
+            }
+        } else {
+            qDebug() << "AddItemCommand::redo - m_item or m_scene is null";
+        }
     }
     
 private:
@@ -37,13 +71,19 @@ public:
         : QUndoCommand("删除项目", parent), m_scene(scene), m_item(item) {}
     
     void undo() override {
-        m_scene->addItem(m_item);
-        m_item->setVisible(true);
+        if (m_item && m_item->scene() != m_scene) {
+            m_scene->addItem(m_item);
+            m_item->setVisible(true);
+            qDebug() << "RemoveItemCommand::undo - added item back to scene";
+        }
     }
     
     void redo() override {
-        m_scene->removeItem(m_item);
-        m_item->setVisible(false);
+        if (m_item && m_item->scene() == m_scene) {
+            m_scene->removeItem(m_item);
+            m_item->setVisible(false);
+            qDebug() << "RemoveItemCommand::redo - removed item from scene";
+        }
     }
     
     ~RemoveItemCommand() override {
@@ -53,6 +93,167 @@ public:
 private:
     DrawingScene *m_scene;
     QGraphicsItem *m_item;
+};
+
+class TransformCommand : public QUndoCommand
+{
+public:
+    enum TransformType {
+        Move,
+        Scale,
+        Rotate,
+        Generic
+    };
+    
+    using TransformState = DrawingScene::TransformState;
+    
+    TransformCommand(DrawingScene *scene, const QList<DrawingShape*>& shapes, const QList<TransformState>& oldStates, TransformType type = Generic, QUndoCommand *parent = nullptr)
+        : QUndoCommand(getCommandText(type, shapes), parent), m_scene(scene), m_shapes(shapes), m_transformType(type), m_oldStates(oldStates)
+    {
+        // 立即捕获变换后的状态（因为这是在变换结束时调用的）
+        for (DrawingShape *shape : m_shapes) {
+            if (shape) {
+                TransformState state;
+                state.position = shape->pos();
+                state.transform = shape->transform();
+                state.rotation = shape->rotation();
+                m_newStates.append(state);
+            }
+        }
+    }
+    
+    static QString getCommandText(TransformType type) {
+        switch (type) {
+            case Move: return "移动";
+            case Scale: return "缩放";
+            case Rotate: return "旋转";
+            default: return "变换";
+        }
+    }
+    
+    static QString getCommandText(TransformType type, const QList<DrawingShape*>& shapes) {
+        QString baseText;
+        switch (type) {
+            case Move: baseText = "移动"; break;
+            case Scale: baseText = "缩放"; break;
+            case Rotate: baseText = "旋转"; break;
+            default: baseText = "变换"; break;
+        }
+        
+        if (shapes.size() == 1) {
+            DrawingShape *shape = shapes.first();
+            if (shape) {
+                switch (shape->shapeType()) {
+                    case DrawingShape::Rectangle: return baseText + "矩形";
+                    case DrawingShape::Ellipse: return baseText + "椭圆";
+                    case DrawingShape::Path: return baseText + "路径";
+                    case DrawingShape::Line: return baseText + "直线";
+                    case DrawingShape::Polyline: return baseText + "折线";
+                    case DrawingShape::Polygon: return baseText + "多边形";
+                    case DrawingShape::Text: return baseText + "文本";
+                    case DrawingShape::Group: return baseText + "组合";
+                    default: return baseText; break;
+                }
+            }
+        } else if (shapes.size() > 1) {
+            return baseText + QString::number(shapes.size()) + "个对象";
+        }
+        
+        return baseText;
+    }
+    
+    int id() const override {
+        // 为每个变换类型返回不同的ID，防止合并
+        return static_cast<int>(m_transformType);
+    }
+    
+    
+    
+    bool hasChanged() const {
+        if (m_oldStates.size() != m_newStates.size()) {
+            return true;
+        }
+        
+        for (int i = 0; i < m_oldStates.size(); ++i) {
+            const auto &oldState = m_oldStates[i];
+            const auto &newState = m_newStates[i];
+            
+            // 使用更合适的浮点数比较，避免精度问题
+            if (qAbs(oldState.position.x() - newState.position.x()) > 0.001 ||
+                qAbs(oldState.position.y() - newState.position.y()) > 0.001 ||
+                qAbs(oldState.rotation - newState.rotation) > 0.001 ||
+                oldState.transform.transform() != newState.transform.transform()) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    void undo() override {
+        qDebug() << "TransformCommand::undo called, shapes count:" << m_shapes.size();
+        
+        // 恢复到变换前的状态
+        for (int i = 0; i < m_shapes.size() && i < m_oldStates.size(); ++i) {
+            DrawingShape *shape = m_shapes[i];
+            // 检查图形是否仍然有效且在正确的场景中
+            if (shape && shape->scene() == m_scene) {
+                const TransformState &state = m_oldStates[i];
+                qDebug() << "  Restoring shape" << i << "to pos:" << state.position;
+                
+                shape->setPos(state.position);
+                shape->setTransform(state.transform);
+                shape->setRotation(state.rotation);
+                
+                // 更新手柄位置
+                if (shape->editHandleManager()) {
+                    shape->editHandleManager()->updateHandles();
+                }
+            } else {
+                qDebug() << "  Shape" << i << "is invalid or not in scene (possibly deleted)";
+                // 图形可能已被删除，跳过此操作但不报错
+            }
+        }
+        if (m_scene) {
+            m_scene->update();
+        }
+    }
+    
+    void redo() override {
+        qDebug() << "TransformCommand::redo called, shapes count:" << m_shapes.size();
+        
+        // 应用到变换后的状态
+        for (int i = 0; i < m_shapes.size() && i < m_newStates.size(); ++i) {
+            DrawingShape *shape = m_shapes[i];
+            // 检查图形是否仍然有效且在正确的场景中
+            if (shape && shape->scene() == m_scene) {
+                const TransformState &state = m_newStates[i];
+                qDebug() << "  Applying shape" << i << "to pos:" << state.position;
+                
+                shape->setPos(state.position);
+                shape->setTransform(state.transform);
+                shape->setRotation(state.rotation);
+                
+                // 更新手柄位置
+                if (shape->editHandleManager()) {
+                    shape->editHandleManager()->updateHandles();
+                }
+            } else {
+                qDebug() << "  Shape" << i << "is invalid or not in scene (possibly deleted)";
+                // 图形可能已被删除，跳过此操作但不报错
+            }
+        }
+        if (m_scene) {
+            m_scene->update();
+        }
+    }
+    
+private:
+    DrawingScene *m_scene;
+    QList<DrawingShape*> m_shapes;
+    QList<TransformState> m_oldStates;
+    QList<TransformState> m_newStates;
+    TransformType m_transformType;
 };
 
 DrawingScene::DrawingScene(QObject *parent)
@@ -100,6 +301,83 @@ void DrawingScene::clearScene()
     
     m_undoStack.clear();
     setModified(false);
+}
+
+// 变换撤销支持
+void DrawingScene::beginTransform(TransformType type)
+{
+    // 如果已经有正在进行的变换，先结束它
+    if (!m_transformOldStates.isEmpty()) {
+        endTransform();
+    }
+    
+    // 保存变换前的状态
+    m_transformOldStates.clear();
+    m_transformShapes.clear();
+    m_currentTransformType = type;
+    
+    QList<DrawingShape*> selectedShapes;
+    QList<QGraphicsItem*> selected = selectedItems();
+    
+    // 从选中的项目中提取DrawingShape对象
+    for (QGraphicsItem *item : selected) {
+        DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+        if (shape) {
+            selectedShapes.append(shape);
+        }
+    }
+    
+    // 保存每个选中图形的初始状态和引用
+    for (DrawingShape *shape : selectedShapes) {
+        if (shape) {
+            TransformState state;
+            state.position = shape->pos();
+            state.transform = shape->transform();
+            state.rotation = shape->rotation();
+            m_transformOldStates.append(state);
+            m_transformShapes.append(shape);
+        }
+    }
+    
+    qDebug() << "beginTransform called. Type:" << type << "Shapes count:" << m_transformShapes.size();
+}
+
+void DrawingScene::endTransform()
+{
+    // 如果没有保存的初始状态，直接返回
+    if (m_transformOldStates.isEmpty() || m_transformShapes.isEmpty()) {
+        return;
+    }
+    
+    // 确定变换类型
+    TransformCommand::TransformType commandType = TransformCommand::Generic;
+    switch (m_currentTransformType) {
+        case Move: commandType = TransformCommand::Move; break;
+        case Scale: commandType = TransformCommand::Scale; break;
+        case Rotate: commandType = TransformCommand::Rotate; break;
+        default: commandType = TransformCommand::Generic; break;
+    }
+    
+    // 创建变换命令，使用保存的图形引用而不是当前选择
+    TransformCommand *command = new TransformCommand(this, m_transformShapes, m_transformOldStates, commandType);
+    
+    // 检查是否有实际的变化，如果有变化则推送到撤销栈
+    bool hasChanged = command->hasChanged();
+    qDebug() << "TransformCommand hasChanged:" << hasChanged << "Shapes count:" << m_transformShapes.size();
+    
+    if (hasChanged) {
+        m_undoStack.push(command);
+        setModified(true);
+        qDebug() << "TransformCommand pushed to undo stack. Stack size:" << m_undoStack.count();
+    } else {
+        // 没有实际变化，删除命令
+        qDebug() << "TransformCommand deleted (no actual changes)";
+        delete command;
+    }
+    
+    // 清理临时状态
+    m_transformOldStates.clear();
+    m_transformShapes.clear();
 }
 
 void DrawingScene::mousePressEvent(QGraphicsSceneMouseEvent *event)

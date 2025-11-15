@@ -615,6 +615,18 @@ void EditHandle::startDrag(const QPointF &scenePos)
     m_dragStartPos = scenePos;
     m_accumulatedRotation = 0.0;  // 重置累积旋转角度
     
+    // 开始变换操作，为撤销做准备
+    if (auto scene = qobject_cast<DrawingScene*>(this->scene())) {
+        // 根据手柄类型确定变换类型
+        DrawingScene::TransformType transformType = DrawingScene::Generic;
+        if (handleType() == Rotation) {
+            transformType = DrawingScene::Rotate;
+        } else if (handleType() >= TopLeft && handleType() <= BottomRight) {
+            transformType = DrawingScene::Scale;
+        }
+        scene->beginTransform(transformType);
+    }
+    
     // 获取父对象（可能是DrawingShape或SelectionLayer）
     auto parent = parentItem();
     
@@ -1033,6 +1045,11 @@ void EditHandle::updateDragForSelectionLayer(const QPointF &scenePos)
 void EditHandle::endDrag()
 {
     m_dragging = false;
+    
+    // 结束变换操作，保存最终状态
+    if (auto scene = qobject_cast<DrawingScene*>(this->scene())) {
+        scene->endTransform();
+    }
 }
 
 // 辅助函数：获取手柄在本地坐标中的位置

@@ -177,7 +177,20 @@ bool DrawingBezierTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &sce
 void DrawingBezierTool::activate(DrawingScene *scene, DrawingView *view)
 {
     ToolBase::activate(scene, view);
-    qDebug() << "Bezier tool activated";
+    qDebug() << "Bezier tool activated, scene:" << scene << "view:" << view;
+    
+    // 检查场景和视图的有效性
+    if (!scene) {
+        qDebug() << "ERROR: scene is null!";
+        return;
+    }
+    
+    if (!view) {
+        qDebug() << "ERROR: view is null!";
+        return;
+    }
+    
+    qDebug() << "Scene item count:" << scene->items().count();
 }
 
 void DrawingBezierTool::deactivate()
@@ -280,9 +293,8 @@ void DrawingBezierTool::finishDrawing()
         // 保存原始控制点以便后续编辑
         static_cast<DrawingPath*>(m_currentItem)->setControlPoints(m_controlPoints);
         
-        // 将图形添加到场景并添加到撤销栈
+        // 将图形添加到撤销栈，AddItemCommand会处理addItem
         if (m_scene) {
-            m_scene->addItem(m_currentItem);
             m_scene->setModified(true);
             
             // 使用DrawingScene中的AddItemCommand
