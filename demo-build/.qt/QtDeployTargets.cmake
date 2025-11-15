@@ -1,0 +1,2 @@
+set(__QT_DEPLOY_TARGET_VectorFlow_FILE /Users/firebolt/workspaces/VectorFlow/demo-build/VectorFlow)
+set(__QT_DEPLOY_TARGET_VectorFlow_TYPE EXECUTABLE)

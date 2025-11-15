@@ -61,7 +61,37 @@ bool DrawingToolPolyline::mousePressEvent(QMouseEvent *event, const QPointF &sce
         if (m_currentPolyline && m_currentPolyline->pointCount() > 1) {
             // 移除最后一个预览点
             m_currentPolyline->removePoint(m_currentPolyline->pointCount() - 1);
-            m_currentPolyline = nullptr; // 不删除，让场景管理
+            
+            // 添加到撤销栈
+            m_scene->setModified(true);
+            
+            // 使用DrawingScene中的AddItemCommand
+            class AddItemCommand : public QUndoCommand
+            {
+            public:
+                AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
+                    : QUndoCommand("添加折线", parent), m_scene(scene), m_item(item) {}
+                
+                void undo() override {
+                    m_scene->removeItem(m_item);
+                    m_item->setVisible(false);
+                }
+                
+                void redo() override {
+                    m_scene->addItem(m_item);
+                    m_item->setVisible(true);
+                }
+                
+            private:
+                DrawingScene *m_scene;
+                QGraphicsItem *m_item;
+            };
+            
+            // 创建并推送撤销命令
+            AddItemCommand *command = new AddItemCommand(m_scene, m_currentPolyline);
+            m_scene->undoStack()->push(command);
+            
+            m_currentPolyline = nullptr;
         }
         return true;
     }
@@ -111,4 +141,3 @@ bool DrawingToolPolyline::mouseDoubleClickEvent(QMouseEvent *event, const QPoint
     return false;
 }
 
-#include "drawing-tool-polyline.moc"

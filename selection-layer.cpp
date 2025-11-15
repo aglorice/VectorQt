@@ -28,9 +28,10 @@ SelectionLayer::SelectionLayer(QObject *parent)
     m_showPreview = false;
     
     // 创建定时器用于定期更新选择边界
-    m_updateTimer = new QTimer(this);
-    connect(m_updateTimer, &QTimer::timeout, this, &SelectionLayer::updateSelectionPeriodically);
-    m_updateTimer->start(50); // 每50ms更新一次
+    // 不再使用定时器，改为事件驱动更新
+    // m_updateTimer = new QTimer(this);
+    // connect(m_updateTimer, &QTimer::timeout, this, &SelectionLayer::updateSelectionPeriodically);
+    // m_updateTimer->start(50); // 每50ms更新一次
     
     // 不再是QGraphicsItem，不需要设置可见性
 }
@@ -54,7 +55,7 @@ void SelectionLayer::addShape(DrawingShape *shape)
     m_selectedShapes.append(shape);
     shape->setSelected(true);
     
-    // QGraphicsItem不能使用信号，使用定时器定期更新
+    // QGraphicsItem不能使用信号，改为事件驱动更新
     
     // 更新边界框
     updateSelectionBounds();
@@ -574,14 +575,14 @@ QVector<QPointF> SelectionLayer::getSceneHandlePositions() const
     return sceneHandles;
 }
 
-void SelectionLayer::updateSelectionPeriodically()
-{
-    // 定期更新选择边界和手柄位置
-    if (!m_selectedShapes.isEmpty()) {
-        updateSelectionBounds();
-        updateHandles();
-    }
-}
+// void SelectionLayer::updateSelectionPeriodically()
+// {
+//     // 定期更新选择边界和手柄位置 - 已移除定时器
+//     if (!m_selectedShapes.isEmpty()) {
+//         updateSelectionBounds();
+//         updateHandles();
+//     }
+// }
 
 QGraphicsItem* SelectionLayer::itemAt(const QPointF &pos) const
 {
@@ -754,5 +755,4 @@ void SelectionLayer::drawPreviewContent(QPainter *painter)
     painter->drawLine(centerLocal, bounds.bottomRight());
 }
 
-#include "selection-layer.moc"
 

@@ -184,7 +184,7 @@ private:
     void applyFinalTransform();
     
 private slots:
-    void updateSelectionPeriodically();
+    // void updateSelectionPeriodically(); // 已移除定时器
 };
 
 #endif // SELECTION_LAYER_H

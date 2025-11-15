@@ -291,9 +291,35 @@ bool LegacyRectangleTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &s
                 delete m_currentItem;
                 m_currentItem = nullptr;
             } else {
-                // 保留图形，设置场景已修改
+                // 保留图形，添加到撤销栈
                 if (m_scene) {
                     m_scene->setModified(true);
+                    
+                    // 使用DrawingScene中的AddItemCommand
+                    class AddItemCommand : public QUndoCommand
+                    {
+                    public:
+                        AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
+                            : QUndoCommand("添加矩形", parent), m_scene(scene), m_item(item) {}
+                        
+                        void undo() override {
+                            m_scene->removeItem(m_item);
+                            m_item->setVisible(false);
+                        }
+                        
+                        void redo() override {
+                            m_scene->addItem(m_item);
+                            m_item->setVisible(true);
+                        }
+                        
+                    private:
+                        DrawingScene *m_scene;
+                        QGraphicsItem *m_item;
+                    };
+                    
+                    // 创建并推送撤销命令
+                    AddItemCommand *command = new AddItemCommand(m_scene, m_currentItem);
+                    m_scene->undoStack()->push(command);
                 }
                 // 重要：将所有权转移给场景，不再由工具管理
                 m_currentItem = nullptr;
@@ -463,8 +489,36 @@ bool LegacyEllipseTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &sce
                 delete m_currentItem;
                 m_currentItem = nullptr;
             } else {
-                // 发出形状完成信号
-                emit shapeFinished(m_currentItem);
+                // 添加到撤销栈
+                if (m_scene) {
+                    m_scene->setModified(true);
+                    
+                    // 使用DrawingScene中的AddItemCommand
+                    class AddItemCommand : public QUndoCommand
+                    {
+                    public:
+                        AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
+                            : QUndoCommand("添加椭圆", parent), m_scene(scene), m_item(item) {}
+                        
+                        void undo() override {
+                            m_scene->removeItem(m_item);
+                            m_item->setVisible(false);
+                        }
+                        
+                        void redo() override {
+                            m_scene->addItem(m_item);
+                            m_item->setVisible(true);
+                        }
+                        
+                    private:
+                        DrawingScene *m_scene;
+                        QGraphicsItem *m_item;
+                    };
+                    
+                    // 创建并推送撤销命令
+                    AddItemCommand *command = new AddItemCommand(m_scene, m_currentItem);
+                    m_scene->undoStack()->push(command);
+                }
                 m_currentItem = nullptr;
             }
         }
@@ -506,4 +560,3 @@ QPointF ToolBase::smartSnap(const QPointF &scenePos, DrawingShape *excludeShape)
     return alignedPos;
 }
 
-#include "toolbase.moc"

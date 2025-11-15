@@ -139,4 +139,3 @@ void DrawingCanvas::paintEvent(QPaintEvent *event)
     QWidget::paintEvent(event);
 }
 
-#include "drawing-canvas.moc"

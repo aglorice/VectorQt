@@ -599,4 +599,3 @@ bool PathEditor::isBoostGeometryAvailable()
     return false; // Boost.Geometry不可用
 }
 
-#include "patheditor.moc"

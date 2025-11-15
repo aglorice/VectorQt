@@ -1098,4 +1098,3 @@ bool EditHandle::intersectsAnyObject() const
     return false;
 }
 
-#include "drawing-edit-handles.moc"

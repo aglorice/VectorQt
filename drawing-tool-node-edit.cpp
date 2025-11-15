@@ -565,12 +565,8 @@ void DrawingNodeEditTool::updateNodeHandles()
             // 矩形：第一个点是圆角控制（圆形），第二个点是尺寸控制（方形）
             handleType = (i == 0) ? EditHandle::CornerRadius : EditHandle::SizeControl;
         } else if (m_selectedShape->shapeType() == DrawingShape::Ellipse) {
-            // 椭圆：前两个点是尺寸控制（方形），后两个点是弧度控制（圆形）
-            if (i < 2) {
-                handleType = EditHandle::SizeControl; // 尺寸控制点
-            } else {
-                handleType = EditHandle::ArcControl; // 角度控制点
-            }
+            // 椭圆：所有点都是尺寸控制（方形）
+            handleType = EditHandle::SizeControl; // 尺寸控制点
         } else {
             // 其他类型，使用自定义类型
             handleType = static_cast<EditHandle::HandleType>(static_cast<int>(EditHandle::Custom) + i);

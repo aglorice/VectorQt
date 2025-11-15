@@ -262,6 +262,9 @@ void MainWindow::setupUI()
     m_lineTool = new DrawingToolLine(this);
     m_pathEditTool = new DrawingToolPathEdit(this);
     // m_textTool = new TextTool(this);  // Not implemented yet
+    
+    // Connect color palette signals to fill tool (moved after all tools are created)
+    // This connection will be made later after all initialization is complete
 
     // Create layer manager - Not implemented yet
     // m_layerManager = new LayerManager(this);
@@ -283,6 +286,20 @@ void MainWindow::setupUI()
     // 连接DrawingCanvas的缩放信号
     connect(m_canvas, &DrawingCanvas::zoomChanged,
             this, &MainWindow::updateZoomLabel);
+            
+    // Connect color palette signals to fill tool (after all objects are created)
+    if (m_colorPalette && m_fillTool) {
+        connect(m_colorPalette, SIGNAL(fillColorChanged(QColor)), 
+                m_fillTool, SLOT(onFillColorChanged(QColor)));
+    }
+    
+    // Connect undo stack signals to update menu states
+    if (m_scene && m_scene->undoStack()) {
+        connect(m_scene->undoStack(), &QUndoStack::canUndoChanged,
+                this, [this](bool canUndo) { m_undoAction->setEnabled(canUndo); });
+        connect(m_scene->undoStack(), &QUndoStack::canRedoChanged,
+                this, [this](bool canRedo) { m_redoAction->setEnabled(canRedo); });
+    }
 
     DrawingView *drawingView = qobject_cast<DrawingView *>(m_canvas->view());
     if (drawingView)

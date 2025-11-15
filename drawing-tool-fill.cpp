@@ -30,6 +30,9 @@ void DrawingToolFill::deactivate()
 bool DrawingToolFill::mousePressEvent(QMouseEvent *event, const QPointF &scenePos)
 {
     if (event->button() == Qt::LeftButton && m_scene) {
+        // 每次点击时重新获取当前颜色
+        m_currentFillColor = getCurrentFillColor();
+        
         // 查找点击位置的封闭图形
         DrawingShape *shape = findEnclosedShape(scenePos);
         if (shape) {
@@ -127,4 +130,3 @@ void DrawingToolFill::onFillColorChanged(const QColor &color)
     m_currentFillColor = color;
 }
 
-#include "drawing-tool-fill.moc"

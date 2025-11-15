@@ -19,7 +19,7 @@ ColorPalette::ColorPalette(QWidget *parent)
     , m_strokeColorButton(nullptr)
     , m_fillColorLabel(nullptr)
     , m_strokeColorLabel(nullptr)
-    , m_currentFillColor(Qt::black)
+    , m_currentFillColor(Qt::blue)
     , m_currentStrokeColor(Qt::black)
 {
     setupUI();
@@ -390,4 +390,3 @@ void ColorPalette::onStrokeColorButtonClicked()
 
 
 
-#include "colorpalette.moc"

@@ -280,10 +280,36 @@ void DrawingBezierTool::finishDrawing()
         // 保存原始控制点以便后续编辑
         static_cast<DrawingPath*>(m_currentItem)->setControlPoints(m_controlPoints);
         
-        // 将图形添加到场景
+        // 将图形添加到场景并添加到撤销栈
         if (m_scene) {
             m_scene->addItem(m_currentItem);
             m_scene->setModified(true);
+            
+            // 使用DrawingScene中的AddItemCommand
+            class AddItemCommand : public QUndoCommand
+            {
+            public:
+                AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
+                    : QUndoCommand("添加贝塞尔曲线", parent), m_scene(scene), m_item(item) {}
+                
+                void undo() override {
+                    m_scene->removeItem(m_item);
+                    m_item->setVisible(false);
+                }
+                
+                void redo() override {
+                    m_scene->addItem(m_item);
+                    m_item->setVisible(true);
+                }
+                
+            private:
+                DrawingScene *m_scene;
+                QGraphicsItem *m_item;
+            };
+            
+            // 创建并推送撤销命令
+            AddItemCommand *command = new AddItemCommand(m_scene, m_currentItem);
+            m_scene->undoStack()->push(command);
         }
         
         qDebug() << "Finished drawing bezier curve with" << m_controlPoints.size() << "control points";
@@ -307,7 +333,8 @@ void DrawingBezierTool::finishDrawing()
         m_currentPath = nullptr;
     }
     
-    m_currentItem = nullptr;
+    // 重要：将所有权转移给场景，不再由工具管理
+        m_currentItem = nullptr;
     
     // 触发场景重绘
     if (m_scene) {

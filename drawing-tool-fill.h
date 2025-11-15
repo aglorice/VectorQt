@@ -29,7 +29,7 @@ public:
     // 获取工具光标类型
     CursorManager::CursorType getCursorType() const override { return CursorManager::FillCursor; }
 
-private slots:
+public slots:
     // 响应颜色变化
     void onFillColorChanged(const QColor &color);
     

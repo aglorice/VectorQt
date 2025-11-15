@@ -283,4 +283,3 @@ QPointF ControlFrame::anchorForHandle(Handle h) const
     }
 }
 
-#include "control-frame.moc"

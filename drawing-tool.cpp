@@ -43,4 +43,3 @@ bool DrawingTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &scenePos)
     return false;
 }
 
-#include "drawing-tool.moc"

@@ -68,13 +68,11 @@ void DrawingShape::setTransform(const DrawingTransform &transform)
     
     // 如果形状被选中，通知场景选择已变化（这会触发标尺更新）
     if (isSelected() && scene()) {
-        // 延迟通知，避免在变换过程中频繁更新
-        QTimer::singleShot(0, [this]() {
-            if (scene()) {
-                // 发出选择变化信号
-                static_cast<DrawingScene*>(scene())->emitSelectionChanged();
-            }
-        });
+        // 直接通知选择变化，避免使用定时器
+        if (scene()) {
+            // 发出选择变化信号
+            static_cast<DrawingScene*>(scene())->emitSelectionChanged();
+        }
     }
     
     // 通知文档对象已修改
@@ -253,14 +251,11 @@ QVariant DrawingShape::itemChange(GraphicsItemChange change, const QVariant &val
         // 如果形状被选中，通知场景选择已变化（这会触发标尺更新）
         if (isSelected() && scene()) {
             // 延迟通知，避免在变换过程中频繁更新
-            // 使用QPointer确保对象仍然存在
-            QPointer<DrawingScene> sceneRef = static_cast<DrawingScene*>(scene());
-            QTimer::singleShot(0, [sceneRef]() {
-                if (sceneRef && !sceneRef.isNull()) {
-                    // 发出选择变化信号
-                    sceneRef->emitSelectionChanged();
-                }
-            });
+            // 直接通知选择变化
+            if (DrawingScene* sceneRef = static_cast<DrawingScene*>(scene())) {
+                // 发出选择变化信号
+                sceneRef->emitSelectionChanged();
+            }
         }
     } else if (change == ItemParentHasChanged) {
         // 父项改变时更新手柄状态
@@ -511,36 +506,14 @@ QVector<QPointF> DrawingEllipse::getNodePoints() const
     // 添加4个控制点：
     // 0. 右边中点 - 控制水平半径
     // 1. 下边中点 - 控制垂直半径  
-    // 2. 起始角度控制点
-    // 3. 结束角度控制点
+    // 2. 左边中点 - 控制水平半径
+    // 3. 上边中点 - 控制垂直半径
     
-    // 尺寸控制点
+    // 尺寸控制点 - 四个方向的中点
     points.append(QPointF(m_rect.right(), m_rect.center().y()));  // 右边中点
     points.append(QPointF(m_rect.center().x(), m_rect.bottom())); // 下边中点
-    
-    // 角度控制点（始终添加，即使椭圆闭合也可以编辑）
-    if (true) {
-        qreal centerX = m_rect.center().x();
-        qreal centerY = m_rect.center().y();
-        qreal radiusX = m_rect.width() / 2.0;
-        qreal radiusY = m_rect.height() / 2.0;
-        
-        // 应用../qdraw的角度处理逻辑
-        qreal startAngle = m_startAngle <= m_spanAngle ? m_startAngle : m_spanAngle;
-        qreal endAngle = m_startAngle >= m_spanAngle ? m_startAngle : m_spanAngle;
-        
-        // 起始角度控制点（使用与../qdraw相同的计算方式）
-        qreal startAngleRad = -startAngle * M_PI / 180.0;
-        qreal x1 = centerX + radiusX * qCos(startAngleRad);
-        qreal y1 = centerY + radiusY * qSin(startAngleRad);
-        points.append(QPointF(x1, y1));
-        
-        // 结束角度控制点（使用与../qdraw相同的计算方式）
-        qreal endAngleRad = -endAngle * M_PI / 180.0;
-        qreal x2 = centerX + radiusX * qCos(endAngleRad);
-        qreal y2 = centerY + radiusY * qSin(endAngleRad);
-        points.append(QPointF(x2, y2));
-    }
+    points.append(QPointF(m_rect.left(), m_rect.center().y()));   // 左边中点
+    points.append(QPointF(m_rect.center().x(), m_rect.top()));    // 上边中点
     
     return points;
 }

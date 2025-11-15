@@ -145,4 +145,3 @@ void RemoveItemCommand::redo()
     }
 }
 
-#include "drawing-document.moc"

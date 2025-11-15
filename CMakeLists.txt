@@ -102,6 +102,11 @@ set(RESOURCES
     icons.qrc
 )
 
+# 设置Qt的MOC（必须在add_executable之前）
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
 # 生成可执行文件
 add_executable(VectorFlow ${SOURCES} ${HEADERS} ${RESOURCES})
 
@@ -110,13 +115,6 @@ target_link_libraries(VectorFlow
     Qt6::Widgets
     Qt6::SvgWidgets
     Qt6::Xml
-)
-
-# 启用Qt元对象系统
-set_target_properties(VectorFlow PROPERTIES
-    AUTOMOC ON
-    AUTORCC ON
-    AUTOUIC ON
 )
 
 # 设置包含目录
@@ -135,3 +133,4 @@ endif()
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(VectorFlow PRIVATE DEBUG)
 endif()
+

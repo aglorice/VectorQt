@@ -594,4 +594,3 @@ void DrawingToolPathEdit::updateSelectedPathsFromScene()
     }
 }
 
-#include "drawing-tool-path-edit.moc"

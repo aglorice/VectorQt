@@ -136,7 +136,36 @@ bool DrawingToolBrush::mouseReleaseEvent(QMouseEvent *event, const QPointF &scen
             // 设置控制点用于后续编辑
             m_currentPath->setControlPoints(m_points);
             
-            m_currentPath = nullptr; // 不删除，让场景管理
+            // 添加到撤销栈
+            m_scene->setModified(true);
+            
+            // 使用DrawingScene中的AddItemCommand
+            class AddItemCommand : public QUndoCommand
+            {
+            public:
+                AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
+                    : QUndoCommand("添加画笔路径", parent), m_scene(scene), m_item(item) {}
+                
+                void undo() override {
+                    m_scene->removeItem(m_item);
+                    m_item->setVisible(false);
+                }
+                
+                void redo() override {
+                    m_scene->addItem(m_item);
+                    m_item->setVisible(true);
+                }
+                
+            private:
+                DrawingScene *m_scene;
+                QGraphicsItem *m_item;
+            };
+            
+            // 创建并推送撤销命令
+            AddItemCommand *command = new AddItemCommand(m_scene, m_currentPath);
+            m_scene->undoStack()->push(command);
+            
+            m_currentPath = nullptr;
         } else if (m_currentPath) {
             // 点太少，删除路径
             if (m_scene) {
@@ -182,4 +211,3 @@ QVector<QPointF> DrawingToolBrush::smoothPath(const QVector<QPointF> &points)
     return smoothedPoints;
 }
 
-#include "drawing-tool-brush.moc"

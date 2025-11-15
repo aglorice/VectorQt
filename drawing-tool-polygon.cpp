@@ -58,12 +58,43 @@ bool DrawingToolPolygon::mousePressEvent(QMouseEvent *event, const QPointF &scen
     } else if (event->button() == Qt::RightButton && m_drawing) {
         // 右键完成多边形绘制
         m_drawing = false;
+        
         if (m_currentPolygon) {
             // 移除最后一个预览点
             if (m_currentPolygon->pointCount() > 2) {
                 m_currentPolygon->removePoint(m_currentPolygon->pointCount() - 1);
             }
-            m_currentPolygon = nullptr; // 不删除，让场景管理
+            
+            // 添加到撤销栈
+            m_scene->setModified(true);
+            
+            // 使用DrawingScene中的AddItemCommand
+            class AddItemCommand : public QUndoCommand
+            {
+            public:
+                AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
+                    : QUndoCommand("添加多边形", parent), m_scene(scene), m_item(item) {}
+                
+                void undo() override {
+                    m_scene->removeItem(m_item);
+                    m_item->setVisible(false);
+                }
+                
+                void redo() override {
+                    m_scene->addItem(m_item);
+                    m_item->setVisible(true);
+                }
+                
+            private:
+                DrawingScene *m_scene;
+                QGraphicsItem *m_item;
+            };
+            
+            // 创建并推送撤销命令
+            AddItemCommand *command = new AddItemCommand(m_scene, m_currentPolygon);
+            m_scene->undoStack()->push(command);
+            
+            m_currentPolygon = nullptr;
         }
         return true;
     }
@@ -108,4 +139,3 @@ bool DrawingToolPolygon::mouseDoubleClickEvent(QMouseEvent *event, const QPointF
     return false;
 }
 
-#include "drawing-tool-polygon.moc"

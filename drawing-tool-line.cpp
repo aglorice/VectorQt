@@ -68,6 +68,47 @@ bool DrawingToolLine::mouseReleaseEvent(QMouseEvent *event, const QPointF &scene
         // 完成直线绘制
         if (m_currentLine) {
             m_currentLine->setLine(QLineF(m_startPoint, scenePos));
+            
+            // 添加到撤销栈
+            if (m_scene) {
+                m_scene->setModified(true);
+                
+                // 使用DrawingScene中的AddItemCommand
+                class AddItemCommand : public QUndoCommand
+                {
+                public:
+                    AddItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
+                        : QUndoCommand("添加直线", parent), m_scene(scene), m_item(item) {}
+                    
+                    void undo() override {
+                        if (m_scene && m_item) {
+                            m_scene->removeItem(m_item);
+                        }
+                    }
+                    
+                    void redo() override {
+                        if (m_scene && m_item) {
+                            m_scene->addItem(m_item);
+                        }
+                    }
+                    
+                    ~AddItemCommand() {
+                        // 在撤销命令被销毁时，如果item不在场景中，则删除它
+                        if (m_item && m_scene && !m_scene->items().contains(m_item)) {
+                            delete m_item;
+                        }
+                    }
+                    
+                private:
+                    DrawingScene *m_scene;
+                    QGraphicsItem *m_item;
+                };
+                
+                // 创建并推送撤销命令
+                AddItemCommand *command = new AddItemCommand(m_scene, m_currentLine);
+                m_scene->undoStack()->push(command);
+            }
+            
             m_currentLine = nullptr; // 不删除，让场景管理
         }
         
@@ -96,4 +137,3 @@ void DrawingToolLine::updateShape(const QPointF &startPos, const QPointF &curren
     }
 }
 
-#include "drawing-tool-line.moc"
