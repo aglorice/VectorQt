@@ -133,6 +133,15 @@ void DrawingShape::setTransform(const DrawingTransform &transform)
     }
 }
 
+void DrawingShape::bakeTransform(const QTransform &transform)
+{
+    // 默认实现：将变换应用到当前的DrawingTransform中
+    DrawingTransform currentTransform = m_transform;
+    QTransform newMatrix = transform * currentTransform.transform();
+    currentTransform.setTransform(newMatrix);
+    setTransform(currentTransform);
+}
+
 void DrawingShape::rotateAroundAnchor(double angle, DrawingTransform::AnchorPoint anchor)
 {
     QPointF center = m_transform.getAnchorPoint(anchor, localBounds());
@@ -558,6 +567,29 @@ void DrawingRectangle::paintShape(QPainter *painter)
     }
 }
 
+void DrawingRectangle::bakeTransform(const QTransform &transform)
+{
+    // 先重置变换矩阵，避免重复应用
+    setTransform(DrawingTransform());
+    
+    // 将变换应用到矩形的内部几何结构中
+    QRectF newRect = transform.mapRect(m_rect);
+    
+    // 更新几何结构
+    m_rect = newRect;
+    
+    // 同时更新圆角半径
+    if (m_cornerRadius > 0) {
+        // 计算变换后的圆角半径（取缩放因子的平均值）
+        qreal scaleX = qSqrt(transform.m11() * transform.m11() + transform.m12() * transform.m12());
+        qreal scaleY = qSqrt(transform.m21() * transform.m21() + transform.m22() * transform.m22());
+        m_cornerRadius *= qAbs((scaleX + scaleY) / 2.0);
+    }
+    
+    // 更新显示
+    update();
+}
+
 // DrawingEllipse
 DrawingEllipse::DrawingEllipse(QGraphicsItem *parent)
     : DrawingShape(Ellipse, parent)
@@ -809,6 +841,21 @@ void DrawingEllipse::paintShape(QPainter *painter)
         // 绘制椭圆弧
         painter->drawArc(m_rect, qRound(startAngle * 16), qRound((endAngle - startAngle) * 16));
     }
+}
+
+void DrawingEllipse::bakeTransform(const QTransform &transform)
+{
+    // 先重置变换矩阵，避免重复应用
+    setTransform(DrawingTransform());
+    
+    // 将变换应用到椭圆的内部几何结构中
+    QRectF newRect = transform.mapRect(m_rect);
+    
+    // 更新几何结构
+    m_rect = newRect;
+    
+    // 更新显示
+    update();
 }
 
 // DrawingPath

@@ -130,6 +130,11 @@ public:
     virtual void beginNodeDrag(int index) { Q_UNUSED(index); }
     // 结束拖动节点
     virtual void endNodeDrag(int index) { Q_UNUSED(index); }
+    // 检查图形是否有可编辑的节点
+    virtual bool hasEditableNodes() const { return getNodePointCount() > 0; }
+    
+    // 🌟 将变换烘焙到图形的内部几何结构中
+    virtual void bakeTransform(const QTransform &transform);
 
 // 渲染
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
@@ -210,6 +215,9 @@ public:
     void beginNodeDrag(int index) override;
     void endNodeDrag(int index) override;
     int getNodePointCount() const override { return 2; }
+    
+    // 🌟 将变换烘焙到矩形的内部几何结构中
+    void bakeTransform(const QTransform &transform) override;
 
 protected:
     void paintShape(QPainter *painter) override;
@@ -261,6 +269,9 @@ public:
         // 基础2个尺寸控制点，如果不是完整椭圆则再加2个角度控制点
         return (m_spanAngle != 360) ? 4 : 2; 
     }
+    
+    // 🌟 将变换烘焙到椭圆的内部几何结构中
+    void bakeTransform(const QTransform &transform) override;
 
 protected:
     void paintShape(QPainter *painter) override;
