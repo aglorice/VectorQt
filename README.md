@@ -1,8 +1,7 @@
 # VectorFlow
 
 VectorFlow 是一个矢量图形编辑器，旨在重写 qdraw 项目并致敬 Inkscape。该项目提供了一个功能丰富且用户友好的界面，用于创建和编辑矢量图形。
-## 界面预览
-![VectorFlow界面截图](screenshots/vectorflow.png)]
+
 ## 特性
 
 ### 选择与变换工具
@@ -90,6 +89,10 @@ make -j4
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request 来帮助改进项目。
+
+## 关键词
+
+矢量图形, SVG编辑器, Inkscape, Qt, C++, 图形设计, 矢量绘图, 开源软件, 图形编辑器, 路径编辑, 节点编辑
 
 ## 致谢
 
