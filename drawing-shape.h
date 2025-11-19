@@ -187,7 +187,7 @@ public:
     explicit DrawingRectangle(const QRectF &rect, QGraphicsItem *parent = nullptr);
     
     QRectF localBounds() const override;
-    QPainterPath shape() const override;
+    //QPainterPath shape() const override;
     QPainterPath transformedShape() const override;
     
     // 矩形属性
@@ -247,7 +247,7 @@ public:
     explicit DrawingEllipse(const QRectF &rect, QGraphicsItem *parent = nullptr);
     
     QRectF localBounds() const override;
-    QPainterPath shape() const override;
+    //QPainterPath shape() const override;
     QPainterPath transformedShape() const override;
     
     // 椭圆属性
@@ -441,7 +441,7 @@ public:
     explicit DrawingPolyline(QGraphicsItem *parent = nullptr);
     
     QRectF localBounds() const override;
-    QPainterPath shape() const override;
+    //QPainterPath shape() const override;
     
     // 重写变换形状方法
     QPainterPath transformedShape() const override;
@@ -501,7 +501,7 @@ public:
     explicit DrawingPolygon(QGraphicsItem *parent = nullptr);
     
     QRectF localBounds() const override;
-    QPainterPath shape() const override;
+    //QPainterPath shape() const override;
     
     // 重写变换形状方法
     QPainterPath transformedShape() const override;

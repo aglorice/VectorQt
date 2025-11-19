@@ -96,9 +96,7 @@ private:
     // 选中图形管理
     QList<DrawingShape*> m_selectedShapes;
     QHash<DrawingShape*, QTransform> m_originalTransforms; // 保存每个图形的初始变换
-    // 🌟 选择框本地坐标系
-    QTransform m_selectionTransform;     // 选择框的本地坐标变换矩阵（场景→本地）
-    QTransform m_selectionInverseTransform; // 选择框的逆变换矩阵（本地→场景）
+
     
     // 手柄管理
     HandleManager *m_handleManager = nullptr;

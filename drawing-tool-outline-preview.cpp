@@ -186,10 +186,9 @@ bool OutlinePreviewTransformTool::mousePressEvent(QMouseEvent *event, const QPoi
     }
 
     // 注释掉自定义点选逻辑，让Qt系统自己处理
-    // QGraphicsItem *item = m_scene->itemAt(scenePos, QTransform());
-    
+    QGraphicsItem *item = m_scene->itemAt(scenePos, QTransform());
+
     // 注释掉自定义点选逻辑，让Qt系统自己处理
-    /*
     if (item)
     {
         // 如果点击了图形
@@ -220,9 +219,9 @@ bool OutlinePreviewTransformTool::mousePressEvent(QMouseEvent *event, const QPoi
         QTimer::singleShot(10, this, [this]()
                            { updateHandlePositions(); });
     }
-    
+
     else
-    */
+
     {
         // 点击空白区域
         if (!(event->modifiers() & Qt::ControlModifier))
@@ -261,19 +260,21 @@ bool OutlinePreviewTransformTool::mouseMoveEvent(QMouseEvent *event, const QPoin
     {
         // 🌟 应用智能吸附到旋转中心位置
         QPointF alignedPos = scenePos;
-        if (m_scene && m_scene->isGridAlignmentEnabled()) {
+        if (m_scene && m_scene->isGridAlignmentEnabled())
+        {
             // 使用智能网格吸附
             DrawingScene::SnapResult gridSnap = m_scene->smartAlignToGrid(scenePos);
             alignedPos = gridSnap.snappedPos;
-            
+
             // 尝试对象吸附
             DrawingScene::ObjectSnapResult objectSnap = m_scene->snapToObjects(scenePos, nullptr);
-            if (objectSnap.snappedToObject) {
+            if (objectSnap.snappedToObject)
+            {
                 // 对象吸附优先级更高
                 alignedPos = objectSnap.snappedPos;
             }
         }
-        
+
         // 实时更新旋转中心位置（使用对齐后的位置）
         setRotationCenter(alignedPos);
         return true;
@@ -293,19 +294,21 @@ bool OutlinePreviewTransformTool::mouseReleaseEvent(QMouseEvent *event, const QP
     {
         // 🌟 应用智能吸附到旋转中心最终位置
         QPointF alignedPos = scenePos;
-        if (m_scene && m_scene->isGridAlignmentEnabled()) {
+        if (m_scene && m_scene->isGridAlignmentEnabled())
+        {
             // 使用智能网格吸附
             DrawingScene::SnapResult gridSnap = m_scene->smartAlignToGrid(scenePos);
             alignedPos = gridSnap.snappedPos;
-            
+
             // 尝试对象吸附
             DrawingScene::ObjectSnapResult objectSnap = m_scene->snapToObjects(scenePos, nullptr);
-            if (objectSnap.snappedToObject) {
+            if (objectSnap.snappedToObject)
+            {
                 // 对象吸附优先级更高
                 alignedPos = objectSnap.snappedPos;
             }
         }
-        
+
         // 完成旋转中心设置（使用对齐后的位置）
         setRotationCenter(alignedPos);
         m_state = STATE_IDLE;
@@ -388,8 +391,6 @@ void OutlinePreviewTransformTool::grab(TransformHandle::HandleType handleType,
     m_initialBounds = calculateInitialSelectionBounds();
 
     // 初始化选择框的本地坐标矩阵
-    m_selectionTransform = QTransform::fromTranslate(-m_initialBounds.left(), -m_initialBounds.top());
-    m_selectionInverseTransform = m_selectionTransform.inverted();
     m_oppositeHandle = calculateOpposite(m_initialBounds, handleType);
     m_transformOrigin = calculateOrigin(m_initialBounds, m_oppositeHandle, modifiers);
     m_handleBounds = m_initialBounds; // 手柄始终基于初始边界
@@ -452,14 +453,16 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
 
     // 🌟 应用智能吸附到鼠标位置
     QPointF alignedPos = mousePos;
-    if (m_scene && m_scene->isGridAlignmentEnabled()) {
+    if (m_scene && m_scene->isGridAlignmentEnabled())
+    {
         // 使用智能网格吸附
         DrawingScene::SnapResult gridSnap = m_scene->smartAlignToGrid(mousePos);
         alignedPos = gridSnap.snappedPos;
-        
+
         // 尝试对象吸附（排除当前选中的图形）
         DrawingScene::ObjectSnapResult objectSnap = m_scene->snapToObjects(mousePos, nullptr);
-        if (objectSnap.snappedToObject) {
+        if (objectSnap.snappedToObject)
+        {
             // 对象吸附优先级更高
             alignedPos = objectSnap.snappedPos;
         }
@@ -562,7 +565,7 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
         DrawingTransform drawingTransform;
         drawingTransform.setTransform(newTransform);
         shape->setTransform(drawingTransform);
-        shape->updateShape(); // 刷新图形的边界和碰撞检测 
+        shape->updateShape(); // 刷新图形的边界和碰撞检测
     }
 
     // 更新视觉辅助元素（使用对齐后的位置）

@@ -415,18 +415,18 @@ QRectF DrawingRectangle::localBounds() const
     return m_rect;
 }
 
-QPainterPath DrawingRectangle::shape() const
-{
-    QPainterPath path;
-    if (m_cornerRadius > 0) {
-        // 创建圆角矩形路径
-        path.addRoundedRect(m_rect, m_cornerRadius, m_cornerRadius);
-    } else {
-        // 创建普通矩形路径
-        path.addRect(m_rect);
-    }
-    return path;
-}
+// QPainterPath DrawingRectangle::shape() const
+// {
+//     QPainterPath path;
+//     if (m_cornerRadius > 0) {
+//         // 创建圆角矩形路径
+//         path.addRoundedRect(m_rect, m_cornerRadius, m_cornerRadius);
+//     } else {
+//         // 创建普通矩形路径
+//         path.addRect(m_rect);
+//     }
+//     return path;
+// }
 
 QPainterPath DrawingRectangle::transformedShape() const
 {
@@ -631,12 +631,12 @@ QRectF DrawingEllipse::localBounds() const
     return m_rect;
 }
 
-QPainterPath DrawingEllipse::shape() const
-{
-    QPainterPath path;
-    path.addEllipse(m_rect);
-    return path;
-}
+// QPainterPath DrawingEllipse::shape() const
+// {
+//     QPainterPath path;
+//     path.addEllipse(m_rect);
+//     return path;
+// }
 
 QPainterPath DrawingEllipse::transformedShape() const
 {
@@ -1569,28 +1569,28 @@ QRectF DrawingPolyline::localBounds() const
     return QRectF(minX, minY, maxX - minX, maxY - minY);
 }
 
-QPainterPath DrawingPolyline::shape() const
-{
-    QPainterPath path;
-    if (m_points.size() < 2) {
-        return path;
-    }
+// QPainterPath DrawingPolyline::shape() const
+// {
+//     QPainterPath path;
+//     if (m_points.size() < 2) {
+//         return path;
+//     }
     
-    // 创建一个稍宽的路径用于选择
-    path.moveTo(m_points.first());
-    for (int i = 1; i < m_points.size(); ++i) {
-        path.lineTo(m_points[i]);
-    }
+//     // 创建一个稍宽的路径用于选择
+//     path.moveTo(m_points.first());
+//     for (int i = 1; i < m_points.size(); ++i) {
+//         path.lineTo(m_points[i]);
+//     }
     
-    if (m_closed) {
-        path.closeSubpath();
-    }
+//     if (m_closed) {
+//         path.closeSubpath();
+//     }
     
-    // 使用笔宽创建描边路径，以便更容易选择
-    QPainterPathStroker stroker;
-    stroker.setWidth(qMax(m_lineWidth + 5.0, 8.0)); // 至少8像素宽
-    return stroker.createStroke(path);
-}
+//     // 使用笔宽创建描边路径，以便更容易选择
+//     QPainterPathStroker stroker;
+//     stroker.setWidth(qMax(m_lineWidth + 5.0, 8.0)); // 至少8像素宽
+//     return stroker.createStroke(path);
+// }
 
 QPainterPath DrawingPolyline::transformedShape() const
 {
@@ -1816,22 +1816,22 @@ QRectF DrawingPolygon::localBounds() const
     return QRectF(minX, minY, maxX - minX, maxY - minY);
 }
 
-QPainterPath DrawingPolygon::shape() const
-{
-    QPainterPath path;
-    if (m_points.size() < 3) {
-        return path;
-    }
+// QPainterPath DrawingPolygon::shape() const
+// {
+//     QPainterPath path;
+//     if (m_points.size() < 3) {
+//         return path;
+//     }
     
-    // 创建多边形路径
-    path.moveTo(m_points.first());
-    for (int i = 1; i < m_points.size(); ++i) {
-        path.lineTo(m_points[i]);
-    }
-    path.closeSubpath(); // 多边形总是闭合的
+//     // 创建多边形路径
+//     path.moveTo(m_points.first());
+//     for (int i = 1; i < m_points.size(); ++i) {
+//         path.lineTo(m_points[i]);
+//     }
+//     path.closeSubpath(); // 多边形总是闭合的
     
-    return path;
-}
+//     return path;
+// }
 
 QPainterPath DrawingPolygon::transformedShape() const
 {
