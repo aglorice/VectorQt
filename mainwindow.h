@@ -133,7 +133,7 @@ private:
     QUndoView *m_undoView;
     ToolBase *m_currentTool;
     ToolBase *m_outlinePreviewTool;      // 选择工具（轮廓预览变换）
-    ToolBase *m_legacySelectTool;        // 老选择工具（用于调试）
+    
     ToolBase *m_rectangleTool;
     ToolBase *m_ellipseTool;
     ToolBase *m_bezierTool;        // 贝塞尔曲线工具

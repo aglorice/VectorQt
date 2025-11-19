@@ -143,10 +143,7 @@ MainWindow::~MainWindow()
         m_outlinePreviewTool = nullptr;
     }
     
-    if (m_legacySelectTool) {
-        delete m_legacySelectTool;
-        m_legacySelectTool = nullptr;
-    }
+    
     
     // 清理场景
     if (m_scene) {
@@ -268,7 +265,6 @@ void MainWindow::setupUI()
 
     // Create tools
     m_outlinePreviewTool = new OutlinePreviewTransformTool(this);
-    m_legacySelectTool = new LegacySelectTool(this);
     m_rectangleTool = new LegacyRectangleTool(this);
     m_ellipseTool = new LegacyEllipseTool(this);
     m_bezierTool = new DrawingBezierTool(this);
