@@ -99,7 +99,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 不设置默认工具，让用户手动选择
 
     resize(1200, 800);
-    setWindowTitle("VectorFlow - 专业矢量绘图工具");
+    setWindowTitle("VectorQt - 专业矢量绘图工具");
 }
 
 MainWindow::~MainWindow()
@@ -1132,7 +1132,7 @@ void MainWindow::newFile()
 {
     if (m_isModified)
     {
-        QMessageBox::StandardButton reply = QMessageBox::question(this, "VectorFlow",
+        QMessageBox::StandardButton reply = QMessageBox::question(this, "VectorQt",
                                                                   "文档已修改，是否保存？",
                                                                   QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
 
@@ -1156,7 +1156,7 @@ void MainWindow::newFile()
 void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
-                                                    "打开文档", QDir::homePath(), "SVG Files (*.svg);;VectorFlow Files (*.vfp)");
+                                                    "打开文档", QDir::homePath(), "SVG Files (*.svg);;VectorQt Files (*.vfp)");
 
     if (!fileName.isEmpty())
     {
@@ -1942,7 +1942,7 @@ void MainWindow::updateZoomLabel()
 void MainWindow::about()
 {
     QMessageBox::about(this, "关于 QDrawPro",
-                       "VectorFlow - 矢量绘图应用\n\n"
+                       "VectorQt - 矢量绘图应用\n\n"
                        "一个基于Qt的矢量绘图应用程序，灵感来自Inkscape。\\n\\n"
                        "功能：\\n"
                        "• 基本绘图工具（矩形、椭圆）\\n"
@@ -2151,7 +2151,7 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
 void MainWindow::updateUI()
 {
     // Update window title
-    QString title = "VectorFlow - 矢量绘图应用";
+    QString title = "VectorQt - 矢量绘图应用";
     if (!m_currentFile.isEmpty())
     {
         title += " - " + QFileInfo(m_currentFile).fileName();
@@ -2238,7 +2238,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
     if (m_isModified)
     {
-        QMessageBox::StandardButton reply = QMessageBox::question(this, "VectorFlow",
+        QMessageBox::StandardButton reply = QMessageBox::question(this, "VectorQt",
                                                                   "文档已修改，是否保存？",
                                                                   QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
 

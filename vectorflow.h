@@ -1,5 +1,5 @@
 #ifndef VECTORFLOW_H
-#define VECTORFLOW_H
+#define VECTORQT_H
 
 #include <QApplication>
 #include <QMainWindow>

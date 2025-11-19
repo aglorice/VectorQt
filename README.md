@@ -4,7 +4,7 @@ VectorQt 是一个矢量图形编辑器，旨在重写 qdraw 项目并致敬 Ink
 
 ## 界面预览
 
-![VectorFlow界面](screenshots/vectorflow.png)
+![VectorQt界面](screenshots/vectorflow.png)
 
 ## 特性
 
@@ -88,7 +88,7 @@ make -j4
 
 ## 界面预览
 
-![VectorFlow界面](screenshots/vectorflow.png)
+![VectorQt界面](screenshots/vectorflow.png)
 
 ## 许可证
 
