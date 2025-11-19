@@ -75,6 +75,52 @@ void HandleManager::createHandles()
     
 }
 
+// 🌟 检查并确保手柄被添加到场景中
+void HandleManager::ensureHandlesInScene()
+{
+    if (!m_scene) {
+        return;
+    }
+    
+    // 检查角点手柄
+    for (QGraphicsRectItem *handle : m_cornerHandles) {
+        if (handle && handle->scene() != m_scene) {
+            // 如果手柄不在正确的场景中，重新添加
+            if (handle->scene()) {
+                handle->scene()->removeItem(handle);
+            }
+            m_scene->addItem(handle);
+        }
+    }
+    
+    // 检查边缘手柄
+    for (QGraphicsRectItem *handle : m_edgeHandles) {
+        if (handle && handle->scene() != m_scene) {
+            // 如果手柄不在正确的场景中，重新添加
+            if (handle->scene()) {
+                handle->scene()->removeItem(handle);
+            }
+            m_scene->addItem(handle);
+        }
+    }
+    
+    // 检查中心手柄
+    if (m_centerHandle && m_centerHandle->scene() != m_scene) {
+        if (m_centerHandle->scene()) {
+            m_centerHandle->scene()->removeItem(m_centerHandle);
+        }
+        m_scene->addItem(m_centerHandle);
+    }
+    
+    // 检查旋转手柄
+    if (m_rotateHandle && m_rotateHandle->scene() != m_scene) {
+        if (m_rotateHandle->scene()) {
+            m_rotateHandle->scene()->removeItem(m_rotateHandle);
+        }
+        m_scene->addItem(m_rotateHandle);
+    }
+}
+
 void HandleManager::destroyHandles()
 {
     if (!m_scene) {
@@ -118,7 +164,8 @@ void HandleManager::showHandles()
 {
     if (!m_scene) return;
     
-    
+    // 🌟 确保所有手柄都在正确的场景中
+    ensureHandlesInScene();
     
     int visibleCount = 0;
     for (int i = 0; i < m_cornerHandles.size(); ++i) {
@@ -183,6 +230,9 @@ void HandleManager::updateHandles(const QRectF &bounds)
 {
     m_bounds = bounds;
     if (bounds.isEmpty()) return;
+    
+    // 🌟 确保所有手柄都在正确的场景中
+    ensureHandlesInScene();
     
     const qreal handleSize = getHandleSize();
     const qreal halfSize = handleSize / 2.0;

@@ -61,6 +61,9 @@ public:
     
     // 设置中心手柄位置（用于自定义旋转中心）
     void setCenterHandlePosition(const QPointF &pos);
+    
+    // 🌟 检查并确保手柄被添加到场景中
+    void ensureHandlesInScene();
 
 private:
     // 创建手柄
