@@ -1,6 +1,10 @@
-# VectorFlow
+# VectorQt
 
-VectorFlow 是一个矢量图形编辑器，旨在重写 qdraw 项目并致敬 Inkscape。该项目提供了一个功能丰富且用户友好的界面，用于创建和编辑矢量图形。
+VectorQt 是一个矢量图形编辑器，旨在重写 qdraw 项目并致敬 Inkscape。该项目提供了一个功能丰富且用户友好的界面，用于创建和编辑矢量图形。
+
+## 界面预览
+
+![VectorFlow界面](screenshots/vectorflow.png)
 
 ## 特性
 
@@ -64,7 +68,7 @@ make -j4
 
 ## 使用
 
-1. 启动 VectorFlow 应用程序
+1. 启动 VectorQt 应用程序
 2. 使用工具栏选择不同的绘图工具
 3. 在画布上绘制或选择现有对象进行编辑
 4. 使用选择工具选中对象并进行变换操作
@@ -100,6 +104,6 @@ make -j4
 
 ## 致谢
 
-VectorFlow 项目受到 Inkscape 的启发，旨在提供一个现代化的矢量图形编辑体验。
+VectorQt 项目受到 Inkscape 的启发，旨在提供一个现代化的矢量图形编辑体验。
 
 本项目由 Egan 开发维护。
