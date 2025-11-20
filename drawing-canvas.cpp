@@ -87,6 +87,8 @@ void DrawingCanvas::fitToWindow()
     QTransform transform = m_view->transform();
     m_zoomLevel = transform.m11();
     emit zoomChanged(m_zoomLevel);
+    // fitInView会改变视图的变换，因此需要触发视口变化信号
+    emit viewportChanged();
 }
 
 void DrawingCanvas::centerOnContent()
@@ -118,11 +120,11 @@ void DrawingCanvas::setZoomLevel(double zoom)
     
     m_zoomLevel = qBound(0.1, zoom, 10.0);
     
-    QTransform transform;
-    transform.scale(m_zoomLevel, m_zoomLevel);
-    m_view->setTransform(transform);
+    // 使用DrawingView的setZoomLevel方法，以确保触发所有相关信号
+    m_view->setZoomLevel(m_zoomLevel);
     
     emit zoomChanged(m_zoomLevel);
+    emit viewportChanged(); // 触发视口变化信号，用于更新标尺
 }
 
 void DrawingCanvas::resizeEvent(QResizeEvent *event)

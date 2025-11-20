@@ -35,6 +35,7 @@ void DrawingView::setZoomLevel(double zoom)
         transform.scale(zoom, zoom);
         setTransform(transform);
         emit zoomChanged(zoom);
+        emit viewportChanged(); // 触发视口变化信号，用于更新标尺
     }
 }
 

@@ -33,6 +33,7 @@ public:
 signals:
     void zoomChanged(double zoom);
     void mousePositionChanged(const QPointF &pos);
+    void viewportChanged(); // 视口变化信号，用于更新标尺
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
