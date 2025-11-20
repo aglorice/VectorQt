@@ -348,6 +348,10 @@ void MainWindow::setupUI()
                         // 垂直标尺：Y坐标与视图对齐，考虑标尺的偏移
                         m_horizontalRuler->setMousePos(QPointF(viewPos.x(), 0));
                         m_verticalRuler->setMousePos(QPointF(0, viewPos.y()));
+                        
+                        // 触发重绘
+                        m_horizontalRuler->update();
+                        m_verticalRuler->update();
                     } });
     }
 
@@ -368,6 +372,10 @@ void MainWindow::setupUI()
                         double zoom = drawingView2->zoomLevel();
                         m_horizontalRuler->setScale(zoom);
                         m_verticalRuler->setScale(zoom);
+                        
+                        // 触发重绘
+                        m_horizontalRuler->update();
+                        m_verticalRuler->update();
                     } });
 
         // 初始化标尺
@@ -378,6 +386,10 @@ void MainWindow::setupUI()
             m_verticalRuler->setOrigin(origin.y());
             m_horizontalRuler->setScale(1.0);
             m_verticalRuler->setScale(1.0);
+            
+            // 触发重绘
+            m_horizontalRuler->update();
+            m_verticalRuler->update();
         }
     }
 
@@ -1936,6 +1948,10 @@ void MainWindow::updateZoomLabel()
 
         // 更新缩放标签
         m_zoomLabel->setText(QString("%1%").arg(qRound(zoom * 100)));
+        
+        // 触发重绘
+        m_horizontalRuler->update();
+        m_verticalRuler->update();
     }
 }
 
@@ -2121,10 +2137,18 @@ void MainWindow::updateRulerSelection()
             // 更新标尺显示
             m_horizontalRuler->setSelectedBounds(combinedBounds);
             m_verticalRuler->setSelectedBounds(combinedBounds);
+            
+            // 触发重绘
+            m_horizontalRuler->update();
+            m_verticalRuler->update();
         } else {
             // 清除标尺显示
             m_horizontalRuler->clearSelectedBounds();
             m_verticalRuler->clearSelectedBounds();
+            
+            // 触发重绘
+            m_horizontalRuler->update();
+            m_verticalRuler->update();
         }
     }
 }
@@ -2144,6 +2168,10 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
         QPoint viewPos = event->pos();
         m_horizontalRuler->setMousePos(QPointF(viewPos.x(), viewPos.y()));
         m_verticalRuler->setMousePos(QPointF(viewPos.x(), viewPos.y()));
+        
+        // 触发重绘
+        m_horizontalRuler->update();
+        m_verticalRuler->update();
     }
     QMainWindow::mouseMoveEvent(event);
 }
