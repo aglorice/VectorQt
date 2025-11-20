@@ -47,29 +47,8 @@ void NodeEditCommand::undo()
 
 void NodeEditCommand::redo()
 {
-    if (m_shape && m_shape->scene() == m_scene)
-    {
-        // 应用到新位置
-        m_shape->setNodePoint(m_nodeIndex, m_newPos);
-
-        // 如果是矩形且编辑的是圆角，应用新的圆角半径（在setNodePoint之后）
-        if (m_newCornerRadius >= 0.0 && m_shape->shapeType() == DrawingShape::Rectangle && m_nodeIndex == 0)
-        {
-            DrawingRectangle *rect = static_cast<DrawingRectangle *>(m_shape);
-            if (rect)
-            {
-                rect->setCornerRadius(m_newCornerRadius);
-            }
-        }
-
-        // 更新场景
-        if (m_scene)
-        {
-            m_scene->update();
-            // 通知所有工具对象状态已变化
-            emit m_scene->objectStateChanged(m_shape);
-        }
-    }
+    // 什么都不做！状态已经在拖动过程中设置好了
+    // 避免双重设置导致的位置跳跃
 }
 
 DrawingNodeEditTool::DrawingNodeEditTool(QObject *parent)
@@ -95,7 +74,7 @@ bool DrawingNodeEditTool::mousePressEvent(QMouseEvent *event, const QPointF &sce
     {
         // 检查是否点击了节点手柄
         QGraphicsItem *item = m_scene->itemAt(scenePos, QTransform());
-        EditHandle *handle = qgraphicsitem_cast<EditHandle *>(item);
+        EditHandle *handle = dynamic_cast<EditHandle *>(item);
 
         if (handle)
         {
@@ -177,7 +156,7 @@ bool DrawingNodeEditTool::mousePressEvent(QMouseEvent *event, const QPointF &sce
                 return false;
             }
 
-            DrawingShape *shape = qgraphicsitem_cast<DrawingShape *>(clickedItem);
+            DrawingShape *shape = dynamic_cast<DrawingShape *>(clickedItem);
 
             if (shape)
             {
@@ -209,11 +188,13 @@ bool DrawingNodeEditTool::mousePressEvent(QMouseEvent *event, const QPointF &sce
                 // 在节点编辑状态下，禁用图形的移动功能
                 shape->setFlag(QGraphicsItem::ItemIsMovable, false);
 
-                // 如果是路径类型，启用控制点连线显示
+                // 如果是路径类型，启用控制点连线显示，并让路径自己处理控制点
                 if (shape->shapeType() == DrawingShape::Path)
                 {
                     DrawingPath *path = static_cast<DrawingPath *>(shape);
                     path->setShowControlPolygon(true);
+                    // 不创建手柄，让路径自己处理控制点
+                    return false; // 让事件传播到DrawingPath
                 }
 
                 updateNodeHandles();
@@ -388,6 +369,7 @@ bool DrawingNodeEditTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &s
                         }
                     }
 
+                    // 简单方案：redo什么都不做，直接传递场景坐标
                     NodeEditCommand *command = new NodeEditCommand(m_scene, m_selectedShape,
                                                                    nodeIndex, m_originalValue, currentPos,
                                                                    oldCornerRadius, newCornerRadius);
@@ -432,7 +414,7 @@ void DrawingNodeEditTool::activate(DrawingScene *scene, DrawingView *view)
         QList<QGraphicsItem *> allItems = m_scene->items();
         for (QGraphicsItem *item : allItems)
         {
-            DrawingShape *shape = qgraphicsitem_cast<DrawingShape *>(item);
+            DrawingShape *shape = dynamic_cast<DrawingShape *>(item);
             if (shape)
             {
                 // 确保图形的移动功能被禁用
@@ -455,7 +437,7 @@ void DrawingNodeEditTool::activate(DrawingScene *scene, DrawingView *view)
                 continue;
             }
 
-            DrawingShape *shape = qgraphicsitem_cast<DrawingShape *>(item);
+            DrawingShape *shape = dynamic_cast<DrawingShape *>(item);
             if (shape)
             { // 处理所有选中的图形
                 // qDebug() << "Node edit tool: found selected shape, type:" << shape->shapeType();
@@ -487,7 +469,7 @@ void DrawingNodeEditTool::activate(DrawingScene *scene, DrawingView *view)
                     continue;
                 }
 
-                DrawingShape *shape = qgraphicsitem_cast<DrawingShape *>(item);
+                DrawingShape *shape = dynamic_cast<DrawingShape *>(item);
                 if (shape)
                 {
                     // qDebug() << "Node edit tool: no selected shape, using first available shape, type:" << shape->shapeType();
@@ -580,7 +562,7 @@ void DrawingNodeEditTool::deactivate()
         QList<QGraphicsItem *> allItems = m_scene->items();
         for (QGraphicsItem *item : allItems)
         {
-            DrawingShape *shape = qgraphicsitem_cast<DrawingShape *>(item);
+            DrawingShape *shape = dynamic_cast<DrawingShape *>(item);
             if (shape)
             {
                 shape->setFlag(QGraphicsItem::ItemIsMovable, true);
@@ -645,7 +627,7 @@ void DrawingNodeEditTool::onSceneSelectionChanged()
     DrawingShape *selectedShape = nullptr;
     for (QGraphicsItem *item : selectedItems)
     {
-        DrawingShape *shape = qgraphicsitem_cast<DrawingShape *>(item);
+        DrawingShape *shape = dynamic_cast<DrawingShape *>(item);
         if (shape)
         {
             selectedShape = shape;
