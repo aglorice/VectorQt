@@ -513,81 +513,19 @@ void DrawingScene::keyPressEvent(QKeyEvent *event)
     }
 }
 
-void DrawingScene::updateSelection()
-{
-    // 使用Qt的信号阻塞机制来避免递归调用
-    bool wasBlocked = blockSignals(true);
-    
-    QList<QGraphicsItem*> selected = selectedItems();
-    QList<DrawingShape*> selectedShapes;
-    
-    // qDebug() << "updateSelection called, total selected items:" << selected.count();
-    
-    // 只收集选中的DrawingShape对象，忽略QGraphicsItemGroup和DrawingLayer
-    for (QGraphicsItem *item : selected) {
-        if (!item) continue; // 空指针检查
-        
-        // 检查是否是DrawingLayer，如果是则跳过
-        if (item->type() == QGraphicsItem::UserType + 100) {
-            // qDebug() << "Skipping DrawingLayer item in selection";
-            continue;
-        }
-        
-        
-        
-        DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
-        if (shape) {
-            // 额外检查对象是否有效且在场景中
-            if (shape->scene() == this) {
-                selectedShapes.append(shape);
-                // qDebug() << "Found selected shape:" << shape;
-            }
-        }
-        // QGraphicsItemGroup和DrawingLayer不需要特殊的编辑手柄，所以不处理
-    }
-    
-    // qDebug() << "Total DrawingShape objects selected:" << selectedShapes.count();
-    
-    // 禁用所有未选中图形的编辑把手
-    QList<QGraphicsItem*> allItems = items();
-    for (QGraphicsItem *item : allItems) {
-        if (!item) continue; // 空指针检查
-        
-        // 跳过DrawingLayer
-        if (item->type() == QGraphicsItem::UserType + 100) {
-            continue;
-        }
-        
-        
-        
-        DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
-        if (shape && !selectedShapes.contains(shape)) {
-            // 额外检查对象是否有效
-            if (shape->scene() == this) {
-                // 老的手柄系统已移除，不再需要禁用编辑把手
-            }
-        }
-    }
-    
-    // 考的手柄系统已移除，不再需要启用编辑把手
-    
-    // 恢复信号状态
-    blockSignals(wasBlocked);
-    
-    // 发射选择变化信号
-    emit selectionChanged();
-}
+
 
 void DrawingScene::activateSelectionTool()
 {
-    // qDebug() << "activateSelectionTool called";
+    qDebug() << "activateSelectionTool called";
     // 只在选择工具激活时连接选择变化信号
     if (!signalsBlocked()) {
         // 断开已存在的连接（如果有的话）
         disconnect(this, &DrawingScene::selectionChanged, this, &DrawingScene::onSelectionChanged);
         
-        // qDebug() << "Connecting selectionChanged signal";
-        connect(this, &DrawingScene::selectionChanged, this, &DrawingScene::onSelectionChanged);
+        qDebug() << "Connecting selectionChanged signal";
+        bool connected = connect(this, &DrawingScene::selectionChanged, this, &DrawingScene::onSelectionChanged);
+        qDebug() << "SelectionChanged signal connected:" << connected;
         
         // 老的选择层系统已移除，不再需要更新
         // if (this->selectionLayer()) {
@@ -806,9 +744,7 @@ bool DrawingScene::isGridAlignmentEnabled() const
 
 void DrawingScene::onSelectionChanged()
 {
-    // qDebug() << "onSelectionChanged called";
-    // 直接更新选择
-    updateSelection();
+    qDebug() << "DrawingScene::onSelectionChanged called, selected items count:" << selectedItems().count();
 }
 
 // Smart snapping feature implementation

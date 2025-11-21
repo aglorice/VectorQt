@@ -128,9 +128,11 @@ void OutlinePreviewTransformTool::activate(DrawingScene *scene, DrawingView *vie
     QString modeText = (m_currentMode == HandleMode::Scale) ? tr("缩放模式") : tr("旋转模式");
     emit statusMessageChanged(modeText + " - 按空格键或Tab键切换模式");
 
-    // 连接选择变化信号
+    // 激活场景的选择工具功能
     if (scene)
     {
+        scene->activateSelectionTool();
+        
         connect(scene, &DrawingScene::selectionChanged, this,
                 &OutlinePreviewTransformTool::onSelectionChanged, Qt::UniqueConnection);
         connect(scene, &DrawingScene::objectStateChanged, this,
@@ -164,6 +166,12 @@ void OutlinePreviewTransformTool::deactivate()
         m_handleManager = nullptr;
     }
 
+    // 停用场景的选择工具功能
+    if (m_scene)
+    {
+        m_scene->deactivateSelectionTool();
+    }
+
     // 恢复内部选择框
     enableInternalSelectionIndicators();
 
@@ -172,6 +180,7 @@ void OutlinePreviewTransformTool::deactivate()
 
 bool OutlinePreviewTransformTool::mousePressEvent(QMouseEvent *event, const QPointF &scenePos)
 {
+    qDebug() << "mousePressEvent called, current selected count:" << (m_scene ? m_scene->selectedItems().count() : 0);
     if (!m_scene || event->button() != Qt::LeftButton)
         return false;
 
@@ -203,59 +212,62 @@ bool OutlinePreviewTransformTool::mousePressEvent(QMouseEvent *event, const QPoi
     }
 
     QGraphicsItem *item = m_scene->itemAt(scenePos, QTransform());
-    for (QGraphicsItem *item : m_scene->selectedItems())
+    if (item)
     {
-        qDebug() << "Currently selected item:" << item;
-        if (item)
+        // 如果点击了图形
+        if (event->modifiers() & Qt::ControlModifier)
         {
-            // 如果点击了图形
-            if (event->modifiers() & Qt::ControlModifier)
+            // Ctrl+点击：切换选择状态
+            if (item->isSelected())
             {
-                // Ctrl+点击：切换选择状态
-                if (item->isSelected())
-                {
-                    item->setSelected(false);
-                }
-                else
-                {
-                    item->setSelected(true);
-                }
-
-                // 更新手柄位置
-                QTimer::singleShot(10, this, [this]()
-                                   { 
-                                   disableInternalSelectionIndicators();
-                                   updateHandlePositions(); });
-                return false;
-            }
-            else if (!item->isSelected())
-            {
-                // 普通点击：如果图形未被选中，清除其他选择并选中当前图形
-                m_scene->clearSelection();
-                item->setSelected(true);
-
-                // 更新手柄位置
-                QTimer::singleShot(10, this, [this]()
-                                   { 
-                                   disableInternalSelectionIndicators();
-                                   updateHandlePositions(); });
+                qDebug() << "Deselecting item, current selected count:" << m_scene->selectedItems().count();
+                item->setSelected(false);
+                qDebug() << "After deselect, selected count:" << m_scene->selectedItems().count();
             }
             else
             {
-                qDebug() << "Clicked on item:" << item;
-                return false;
+                qDebug() << "Selecting item, current selected count:" << m_scene->selectedItems().count();
+                item->setSelected(true);
+                qDebug() << "After select, selected count:" << m_scene->selectedItems().count();
             }
+
+            // 更新手柄位置
+            QTimer::singleShot(10, this, [this]()
+                               { 
+                                   disableInternalSelectionIndicators();
+                                   updateHandlePositions(); });
+            return false;
+        }
+        else if (!item->isSelected())
+        {
+            // // 普通点击：如果图形未被选中，清除其他选择并选中当前图形
+            // m_scene->clearSelection();
+            // item->setSelected(true);
+            qDebug() << "Clicked on not select item:" << item;
+            // 更新手柄位置
+            QTimer::singleShot(10, this, [this]()
+                               { 
+                                   disableInternalSelectionIndicators();
+                                   updateHandlePositions(); });
+            return false;
+        }
+        else
+        {
+            qDebug() << "Clicked on selected item:" << item;
+            return false;
         }
     }
-
-    if (m_scene && m_scene->selectedItems().isEmpty())
+    if (m_scene)
     {
+        qDebug() << "Clicked on empty space :" << m_scene->selectedItems().size();
         // 点击空白处，清除选择
         m_scene->clearSelection();
         // 重置旋转中心位置，让它跟随新的选择
         resetRotationCenter();
 
-        qDebug() << "Clicked on empty space";
+        // 清理无效的图形引用（已被删除的对象）
+        cleanupInvalidShapes();
+
     }
     // 不消费事件，让场景处理框选
     return false;
@@ -397,6 +409,7 @@ void OutlinePreviewTransformTool::grab(TransformHandle::HandleType handleType,
 
     // 获取选中的图形
     QList<QGraphicsItem *> selectedItems = m_scene->selectedItems();
+    qDebug() << "grab() called, selected items count:" << selectedItems.count();
     if (selectedItems.isEmpty())
     {
         resetState();
@@ -574,7 +587,7 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
     for (DrawingShape *shape : m_selectedShapes)
     {
         if (!shape || !shape->scene())
-            continue;  // 跳过无效的图形
+            continue; // 跳过无效的图形
 
         // 获取初始变换
         QTransform originalTransform = m_originalTransforms.value(shape, QTransform());
@@ -623,13 +636,17 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
     updateVisualHelpers(alignedPos);
 
     // Show scale or rotate hints
-    if (m_scene) {
-        if (m_activeHandle != TransformHandle::Rotate) {
+    if (m_scene)
+    {
+        if (m_activeHandle != TransformHandle::Rotate)
+        {
             // Scale hint
             DrawingScene::ScaleHintResult scaleHint = m_scene->calculateScaleHint(sx, sy, alignedPos);
             m_scene->showScaleHint(scaleHint);
             m_scene->clearRotateHint(); // 清除旋转提示
-        } else {
+        }
+        else
+        {
             // Rotate hint
             QPointF center = m_useCustomRotationCenter ? m_customRotationCenter : m_transformOrigin;
             qreal initialAngle = qAtan2(m_grabMousePos.y() - center.y(),
@@ -637,12 +654,12 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
             qreal currentAngle = qAtan2(alignedPos.y() - center.y(),
                                         alignedPos.x() - center.x());
             qreal rotation = (currentAngle - initialAngle) * 180.0 / M_PI;
-            
+
             DrawingScene::RotateHintResult rotateHint = m_scene->calculateRotateHint(rotation, alignedPos);
             m_scene->showRotateHint(rotateHint);
             m_scene->clearScaleHint(); // 清除缩放提示
         }
-        
+
         m_scene->update();
     }
 }
@@ -650,11 +667,12 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
 void OutlinePreviewTransformTool::ungrab(bool apply, const QPointF &finalMousePos)
 {
     // Clear hints
-    if (m_scene) {
+    if (m_scene)
+    {
         m_scene->clearScaleHint();
         m_scene->clearRotateHint();
     }
-    
+
     if (apply)
     {
         // 应用变换 - 变换已经在transform()中直接应用到图形了
@@ -665,7 +683,7 @@ void OutlinePreviewTransformTool::ungrab(bool apply, const QPointF &finalMousePo
         for (DrawingShape *shape : m_selectedShapes)
         {
             if (!shape || !shape->scene())
-                continue;  // 跳过无效的图形
+                continue; // 跳过无效的图形
 
             QTransform originalTransform = m_originalTransforms.value(shape, QTransform());
             DrawingTransform drawingTransform;
@@ -760,7 +778,7 @@ QRectF OutlinePreviewTransformTool::calculateInitialSelectionBounds() const
         for (DrawingShape *shape : m_selectedShapes)
         {
             if (!shape || !shape->scene())
-                continue;  // 跳过无效的图形
+                continue; // 跳过无效的图形
 
             QRectF shapeBounds = shape->sceneBoundingRect();
             if (first)
@@ -806,10 +824,12 @@ QRectF OutlinePreviewTransformTool::calculateInitialSelectionBounds() const
 void OutlinePreviewTransformTool::cleanupInvalidShapes()
 {
     // 清理m_selectedShapes中无效的图形引用
-    QMutableListIterator<DrawingShape*> it(m_selectedShapes);
-    while (it.hasNext()) {
-        DrawingShape* shape = it.next();
-        if (!shape || !shape->scene()) {
+    QMutableListIterator<DrawingShape *> it(m_selectedShapes);
+    while (it.hasNext())
+    {
+        DrawingShape *shape = it.next();
+        if (!shape || !shape->scene())
+        {
             // 图形已被删除或不再在任何场景中，移除引用
             it.remove();
             m_originalTransforms.remove(shape);
@@ -822,6 +842,7 @@ void OutlinePreviewTransformTool::onSelectionChanged()
 {
     // 清理无效的图形引用（已被删除的对象）
     cleanupInvalidShapes();
+    qDebug() << "Selection changed, cleaning up invalid shapes";
     // 更新UI
     //  disableInternalSelectionIndicators();
 
@@ -1049,7 +1070,7 @@ void OutlinePreviewTransformTool::updateOutlinePreview()
         for (DrawingShape *shape : m_selectedShapes)
         {
             if (!shape || !shape->scene())
-                continue;  // 跳过无效的图形
+                continue; // 跳过无效的图形
             QRectF shapeBounds = shape->sceneBoundingRect();
 
             if (unifiedBounds.isEmpty())

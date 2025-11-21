@@ -32,7 +32,7 @@
 // #include "layermanager.h"  // Not implemented yet
 // #include "layerpanel.h"    // Not implemented yet
 // #include "advancedtools.h" // Not implemented yet
-// #include "svghandler.h"  // 暂时禁用SVG功能
+#include "svghandler.h"
 #include <algorithm>
 #include "drawing-shape.h"
 #include "colorpalette.h"
@@ -61,7 +61,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_scene(nullptr), m_canvas(nullptr), m_propertyPanel(nullptr), m_tabbedPropertyPanel(nullptr), m_undoView(nullptr), m_layerManager(nullptr), m_currentTool(nullptr), m_outlinePreviewTool(nullptr), m_rectangleTool(nullptr), m_ellipseTool(nullptr), m_bezierTool(nullptr),
       m_colorPalette(nullptr), m_scrollableToolBar(nullptr),
-      m_horizontalRuler(nullptr), m_verticalRuler(nullptr), m_cornerWidget(nullptr), m_isModified(false)
+      m_horizontalRuler(nullptr), m_verticalRuler(nullptr), m_cornerWidget(nullptr), m_isModified(false), m_lastOpenDir(QDir::homePath()), m_lastSaveDir(QDir::homePath()),
+      m_uiUpdateTimer(nullptr), m_lastSelectedCount(0)
 {
     createActions();
     setupUI();
@@ -103,6 +104,19 @@ MainWindow::MainWindow(QWidget *parent)
     {
         m_scene->update();
     }
+
+    // 创建UI更新定时器
+    m_uiUpdateTimer = new QTimer(this);
+    connect(m_uiUpdateTimer, &QTimer::timeout, this, [this]() {
+        if (m_scene) {
+            int currentCount = m_scene->selectedItems().count();
+            if (currentCount != m_lastSelectedCount) {
+                m_lastSelectedCount = currentCount;
+                updateUI();
+            }
+        }
+    });
+    m_uiUpdateTimer->start(100); // 每100ms检查一次
 
     // 不设置默认工具，让用户手动选择
 
@@ -1204,6 +1218,9 @@ void MainWindow::setCurrentTool(ToolBase *tool)
                                             : "未知")); // Simplified since TextTool is not implemented
 
     qDebug() << "Tool switch completed";
+    
+    // 初始化UI状态
+    updateUI();
 }
 
 
@@ -1241,16 +1258,27 @@ void MainWindow::newFile()
 void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
-                                                    "打开文档", QDir::homePath(), "SVG Files (*.svg);;VectorQt Files (*.vfp)");
+                                                    "打开文档", m_lastOpenDir, "SVG Files (*.svg);;VectorQt Files (*.vfp)");
 
     if (!fileName.isEmpty())
     {
         QFileInfo fileInfo(fileName);
+        m_lastOpenDir = fileInfo.absolutePath(); // 更新记住的目录
+        
+        // 重置选择状态
+        if (m_scene) {
+            m_scene->clearSelection();
+        }
+        
+        // 重置当前工具
+        if (m_outlinePreviewTool) {
+            setCurrentTool(m_outlinePreviewTool);
+        }
+        
         if (fileInfo.suffix().toLower() == "svg")
         {
             // SVG导入
-            // if (false && SvgHandler::importFromSvg(m_scene, fileName)) {  // 暂时禁用
-    if (false) {  // 暂时禁用SVG导入
+            if (SvgHandler::importFromSvg(m_scene, fileName)) {
                 m_currentFile = fileName;
                 m_isModified = false;
                 updateUI(); // 更新窗口标题
@@ -1283,8 +1311,7 @@ void MainWindow::saveFile()
     else
     {
         // 保存为 SVG 文件
-        // if (SvgHandler::exportToSvg(m_scene, m_currentFile)) {
-    if (false) {  // 暂时禁用SVG导出
+        if (SvgHandler::exportToSvg(m_scene, m_currentFile)) {
             m_isModified = false;
             m_statusLabel->setText(QString("文档已保存: %1").arg(QFileInfo(m_currentFile).fileName()));
         } else {
@@ -1296,10 +1323,13 @@ void MainWindow::saveFile()
 void MainWindow::saveFileAs()
 {
     QString fileName = QFileDialog::getSaveFileName(this,
-                                                    "保存文档", QDir::homePath(), "SVG Files (*.svg)");
+                                                    "保存文档", m_lastSaveDir, "SVG Files (*.svg)");
 
     if (!fileName.isEmpty())
     {
+        QFileInfo fileInfo(fileName);
+        m_lastSaveDir = fileInfo.absolutePath(); // 更新记住的保存目录
+        
         // 确保文件有 .svg 扩展名
         if (!fileName.endsWith(".svg", Qt::CaseInsensitive)) {
             fileName += ".svg";
@@ -1308,8 +1338,7 @@ void MainWindow::saveFileAs()
         m_currentFile = fileName;
         
         // 保存为 SVG 文件
-        // if (false && SvgHandler::exportToSvg(m_scene, m_currentFile)) {  // 暂时禁用
-    if (false) {  // 暂时禁用SVG导出
+        if (SvgHandler::exportToSvg(m_scene, m_currentFile)) {
             m_isModified = false;
             m_statusLabel->setText(QString("文档已保存: %1").arg(QFileInfo(m_currentFile).fileName()));
         } else {
@@ -1320,16 +1349,16 @@ void MainWindow::saveFileAs()
 
 void MainWindow::exportFile()
 {
-    QString fileName = QFileDialog::getSaveFileName(this,
-                                                    "导出文档", QDir::homePath(), "SVG Files (*.svg)");
+    QString fileName = QFileDialog::getSaveFileName(this, tr("导出文档"), m_lastSaveDir, "SVG Files (*.svg)");
 
     if (!fileName.isEmpty())
     {
-        // if (false && SvgHandler::exportToSvg(m_scene, fileName)) {  // 暂时禁用
-    if (false) {  // 暂时禁用SVG导出
-            m_statusLabel->setText(QString("文档已导出到: %1").arg(QFileInfo(fileName).fileName()));
+        QFileInfo fileInfo(fileName);
+        m_lastSaveDir = fileInfo.absolutePath(); // 更新记住的保存目录
+        if (SvgHandler::exportToSvg(m_scene, fileName)) {
+            statusBar()->showMessage(tr("文档已导出"), 2000);
         } else {
-            QMessageBox::warning(this, "导出错误", "无法导出SVG文件");
+            QMessageBox::warning(this, tr("导出失败"), tr("无法导出文档"));
         }
     }
 }
@@ -2147,6 +2176,10 @@ void MainWindow::about()
 
 void MainWindow::onSelectionChanged()
 {
+    // 调试输出
+    if (m_scene) {
+        qDebug() << "onSelectionChanged called, selected items count:" << m_scene->selectedItems().count();
+    }
     updateUI();
     if (m_propertyPanel)
     {
@@ -2402,6 +2435,10 @@ void MainWindow::updateUI()
             }
         }
         }
+        
+        // 调试输出
+        qDebug() << "updateUI: hasMultipleSelection =" << hasMultipleSelection 
+                 << "selected count =" << selected.size();
         
         m_groupAction->setEnabled(hasMultipleSelection);
         m_ungroupAction->setEnabled(hasGroupSelection);

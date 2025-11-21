@@ -194,6 +194,9 @@ void DrawingGroup::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 
 void DrawingGroup::setTransform(const DrawingTransform &transform)
 {
+
+    
+
     // 🌟 参考control-frame的统一旋转逻辑
     if (m_items.isEmpty()) {
         DrawingShape::setTransform(transform);
@@ -300,12 +303,6 @@ void DrawingGroup::setTransform(const DrawingTransform &transform)
     // 更新几何
     prepareGeometryChange();
     update();
-    
-    // 🌟 强制更新编辑手柄位置 - 关键修复
-    // 老的手柄系统已移除，不再需要更新
-    // if (editHandleManager()) {
-    //     editHandleManager()->updateHandles();
-    // }
 }
 
 void DrawingGroup::applyScale(const QPointF &anchor, qreal sx, qreal sy)

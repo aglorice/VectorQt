@@ -14,6 +14,7 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QColorDialog>
+#include <QTimer>
 #include <QUndoStack>
 #include <QUndoView>
 
@@ -244,6 +245,14 @@ private:
     QLabel *m_positionLabel;
     QString m_currentFile;
     bool m_isModified;
+    
+    // UI更新定时器
+    QTimer *m_uiUpdateTimer;
+    int m_lastSelectedCount;
+    
+    // 文件对话框目录记忆
+    QString m_lastOpenDir;
+    QString m_lastSaveDir;
 };
 
 #endif // MAINWINDOW_H

@@ -34,7 +34,6 @@ public:
     
     // 选择层管理
     // SelectionLayer* selectionLayer() const { return m_selectionLayer; } // 已移除 - 老的选择层系统
-    void updateSelection();
     
     // 激活/停用选择工具时调用
     void activateSelectionTool();
@@ -197,6 +196,7 @@ signals:
     void sceneModified(bool modified);
     void objectStateChanged(DrawingShape* shape); // 对象状态变化通知
     void selectionChanged(); // 选择变化通知
+    void sceneAboutToBeCleared(); // 场景即将被清理通知
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;

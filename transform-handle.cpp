@@ -258,6 +258,12 @@ void HandleManager::destroyHandles()
         m_selectionBorder = nullptr;
     }
 }
+
+void HandleManager::clearScene()
+{
+    // 清理场景引用，防止访问已删除的场景
+    m_scene = nullptr;
+}
 void HandleManager::setHandleMode(HandleMode::Mode mode)
 {
     if (m_handleMode != mode)
@@ -534,10 +540,20 @@ TransformHandle::HandleType HandleManager::getHandleAtPosition(const QPointF &sc
 {
     const qreal tolerance = getHandleSize() / 2.0 + 2.0; // 添加一些容差
 
+    // 安全检查：确保场景存在且有效
+    if (!m_scene) {
+        return TransformHandle::None;
+    }
+    
+    // 检查场景是否已经被清理（通过检查是否有图形项）
+    if (m_scene->items().isEmpty()) {
+        return TransformHandle::None;
+    }
+
     // 检查旋转角点手柄（旋转模式下）
     for (int i = 0; i < m_rotateCornerHandles.size(); ++i)
     {
-        if (m_rotateCornerHandles[i] && m_rotateCornerHandles[i]->isVisible())
+        if (m_rotateCornerHandles[i] && m_rotateCornerHandles[i]->isVisible() && m_rotateCornerHandles[i]->scene() == m_scene)
         {
             QPointF handlePos = m_rotateCornerHandles[i]->sceneBoundingRect().center();
             if (QLineF(scenePos, handlePos).length() <= tolerance)
@@ -551,7 +567,7 @@ TransformHandle::HandleType HandleManager::getHandleAtPosition(const QPointF &sc
     // 检查角点手柄
     for (int i = 0; i < m_cornerHandles.size(); ++i)
     {
-        if (m_cornerHandles[i] && m_cornerHandles[i]->isVisible())
+        if (m_cornerHandles[i] && m_cornerHandles[i]->isVisible() && m_cornerHandles[i]->scene() == m_scene)
         {
             QPointF handlePos = m_cornerHandles[i]->sceneBoundingRect().center();
             if (QLineF(scenePos, handlePos).length() <= tolerance)
@@ -574,7 +590,7 @@ TransformHandle::HandleType HandleManager::getHandleAtPosition(const QPointF &sc
     // 检查边缘手柄
     for (int i = 0; i < m_edgeHandles.size(); ++i)
     {
-        if (m_edgeHandles[i] && m_edgeHandles[i]->isVisible())
+        if (m_edgeHandles[i] && m_edgeHandles[i]->isVisible() && m_edgeHandles[i]->scene() == m_scene)
         {
             QPointF handlePos = m_edgeHandles[i]->sceneBoundingRect().center();
             if (QLineF(scenePos, handlePos).length() <= tolerance)
@@ -595,7 +611,7 @@ TransformHandle::HandleType HandleManager::getHandleAtPosition(const QPointF &sc
     }
 
     // 检查中心手柄
-    if (m_centerHandle && m_centerHandle->isVisible())
+    if (m_centerHandle && m_centerHandle->isVisible() && m_centerHandle->scene() == m_scene)
     {
         QPointF handlePos = m_centerHandle->sceneBoundingRect().center();
         if (QLineF(scenePos, handlePos).length() <= tolerance)
@@ -605,7 +621,7 @@ TransformHandle::HandleType HandleManager::getHandleAtPosition(const QPointF &sc
     }
 
     // 检查旋转手柄
-    if (m_rotateHandle && m_rotateHandle->isVisible())
+    if (m_rotateHandle && m_rotateHandle->isVisible() && m_rotateHandle->scene() == m_scene)
     {
         QPointF handlePos = m_rotateHandle->sceneBoundingRect().center();
         if (QLineF(scenePos, handlePos).length() <= tolerance)

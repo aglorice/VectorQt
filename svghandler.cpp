@@ -3,6 +3,7 @@
 #include "drawing-shape.h"
 #include "drawing-layer.h"
 #include "drawing-group.h"
+#include "layer-manager.h"
 #include <QFile>
 #include <QDomDocument>
 #include <QDomElement>
@@ -184,9 +185,7 @@ int SvgHandler::parseGroupElement(DrawingScene *scene, const QDomElement &groupE
     
     if (isLayer) {
         // 创建图层
-        layer = new DrawingLayer(layerId);
-        // TODO: 需要在 DrawingScene 中实现 addLayer 方法
-        // scene->addLayer(layer);
+        layer = LayerManager::instance()->createLayer(layerId);
         // qDebug() << "创建图层:" << layerId;
     } else {
         // 创建组合对象
@@ -1180,28 +1179,23 @@ QDomDocument SvgHandler::exportSceneToSvgDocument(DrawingScene *scene)
     
     for (QGraphicsItem *item : allItems) {
         // 跳过选择指示器等辅助元素
-        // TODO: 更新以适应新的DrawingLayer设计
-        /*
         if (item->type() == QGraphicsItem::UserType + 100) {
             // DrawingLayer
-            DrawingLayer *layer = static_cast<DrawingLayer*>(item);
-            if (layer) {
-                layers.append(layer);
-                // 使用 sceneBoundingRect 获取场景中的实际边界
-                QRectF layerBounds = layer->sceneBoundingRect();
-                if (firstItem) {
-                    contentBounds = layerBounds;
-                    firstItem = false;
-                } else {
-                    contentBounds = contentBounds.united(layerBounds);
-                }
-            }
-        }
-        }
-        }
-        */
-        
-        DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+            
+            // DrawingLayer *layer = static_cast<DrawingLayer*>(item);
+            // if (layer) {
+            //     layers.append(layer);
+            //     // 使用 sceneBoundingRect 获取场景中的实际边界
+            //     QRectF layerBounds = layer->sceneBoundingRect();
+            //     if (firstItem) {
+            //         contentBounds = layerBounds;
+            //         firstItem = false;
+            //     } else {
+            //         contentBounds = contentBounds.united(layerBounds);
+            //     }
+            // }
+        } else {
+            DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
             if (shape) {
                 shapes.append(shape);
                 // 使用 sceneBoundingRect 获取场景中的实际边界

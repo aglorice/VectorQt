@@ -90,14 +90,8 @@ void DrawingShape::setTransform(const DrawingTransform &transform)
     m_transform = transform;
     update();
     
-    // 如果形状被选中，通知场景选择已变化（这会触发标尺更新）
-    if (isSelected() && scene()) {
-        // 直接通知选择变化，避免使用定时器
-        if (scene()) {
-            // 发出选择变化信号
-            static_cast<DrawingScene*>(scene())->emitSelectionChanged();
-        }
-    }
+    // 通知对象状态已变化
+    notifyObjectStateChanged();
     
     // 通知文档对象已修改
     if (m_document) {
@@ -272,17 +266,8 @@ QVariant DrawingShape::itemChange(GraphicsItemChange change, const QVariant &val
             }
         }
     } else if (change == ItemTransformHasChanged || change == ItemPositionHasChanged) {
-        // 老的手柄系统已移除，不再需要更新把手位置
-        
-        // 如果形状被选中，通知场景选择已变化（这会触发标尺更新）
-        if (isSelected() && scene()) {
-            // 延迟通知，避免在变换过程中频繁更新
-            // 直接通知选择变化
-            if (DrawingScene* sceneRef = static_cast<DrawingScene*>(scene())) {
-                // 发出选择变化信号
-                sceneRef->emitSelectionChanged();
-            }
-        }
+        // 通知对象状态已变化
+        notifyObjectStateChanged();
     } else if (change == ItemParentHasChanged) {
         // 老的手柄系统已移除，不再需要更新手柄状态
     }

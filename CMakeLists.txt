@@ -60,7 +60,7 @@ set(SOURCES
     drawing-layer.cpp
     layer-manager.cpp
     # SVG处理
-    # svghandler.cpp
+    svghandler.cpp
     # 组合对象
     drawing-group.cpp
     # 颜色调色板
