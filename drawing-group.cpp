@@ -1,9 +1,9 @@
 #include "drawing-group.h"
 #include "drawing-shape.h"
 #include "drawing-transform.h"
-#include "drawing-edit-handles.h"
+
 #include "drawingscene.h"
-#include "selection-layer.h"
+// #include "selection-layer.h" // 已移除 - 老的选择层系统
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QDebug>
@@ -302,9 +302,10 @@ void DrawingGroup::setTransform(const DrawingTransform &transform)
     update();
     
     // 🌟 强制更新编辑手柄位置 - 关键修复
-    if (editHandleManager()) {
-        editHandleManager()->updateHandles();
-    }
+    // 老的手柄系统已移除，不再需要更新
+    // if (editHandleManager()) {
+    //     editHandleManager()->updateHandles();
+    // }
 }
 
 void DrawingGroup::applyScale(const QPointF &anchor, qreal sx, qreal sy)
@@ -330,9 +331,10 @@ void DrawingGroup::applyScale(const QPointF &anchor, qreal sx, qreal sy)
     update();
     
     // 更新编辑手柄位置
-    if (editHandleManager()) {
-        editHandleManager()->updateHandles();
-    }
+    // 老的手柄系统已移除，不再需要更新
+    // if (editHandleManager()) {
+    //     editHandleManager()->updateHandles();
+    // }
 }
 
 void DrawingGroup::grabTransform()
@@ -379,7 +381,7 @@ void DrawingGroup::applyTransformWithHandle(int handleType, const QPointF &initi
     // 1. 根据手柄类型确定锚点
     DrawingTransform::AnchorPoint anchor = DrawingTransform::Center;
     
-    // 手柄类型映射到锚点（与drawing-edit-handles一致）
+    // 手柄类型映射到锚点
     // 关键：拖动手柄时，固定对角的锚点
     switch (handleType) {
         case 1: // TopLeft
@@ -523,9 +525,10 @@ void DrawingGroup::applyTransformWithHandle(int handleType, const QPointF &initi
     update();
     
     // 🌟 更新编辑手柄位置
-    if (editHandleManager()) {
-        editHandleManager()->updateHandles();
-    }
+    // 老的手柄系统已移除，不再需要更新
+    // if (editHandleManager()) {
+    //     editHandleManager()->updateHandles();
+    // }
 }
 
 void DrawingGroup::applyRotationWithHandle(const QPointF &center, double angleDelta)
@@ -582,9 +585,10 @@ void DrawingGroup::applyRotationWithHandle(const QPointF &center, double angleDe
     update();
     
     // 🌟 更新编辑手柄位置
-    if (editHandleManager()) {
-        editHandleManager()->updateHandles();
-    }
+    // 老的手柄系统已移除，不再需要更新
+    // if (editHandleManager()) {
+    //     editHandleManager()->updateHandles();
+    // }
 }
 
 void DrawingGroup::applyScaleWithHandle(int handleType, const QPointF &initialHandlePos, const QPointF &currentHandlePos)
@@ -658,9 +662,10 @@ void DrawingGroup::applyScaleWithHandle(int handleType, const QPointF &initialHa
     update();
     
     // 更新编辑手柄位置
-    if (editHandleManager()) {
-        editHandleManager()->updateHandles();
-    }
+    // 老的手柄系统已移除，不再需要更新
+    // if (editHandleManager()) {
+    //     editHandleManager()->updateHandles();
+    // }
 }
 
 void DrawingGroup::applyRotation(qreal angle, const QPointF &center)
@@ -689,9 +694,10 @@ void DrawingGroup::applyRotation(qreal angle, const QPointF &center)
     update();
     
     // 🌟 更新编辑手柄位置
-    if (editHandleManager()) {
-        editHandleManager()->updateHandles();
-    }
+    // 老的手柄系统已移除，不再需要更新
+    // if (editHandleManager()) {
+    //     editHandleManager()->updateHandles();
+    // }
 }
 
 QVariant DrawingGroup::itemChange(QGraphicsItem::GraphicsItemChange change, const QVariant &value)
@@ -714,10 +720,10 @@ QVariant DrawingGroup::itemChange(QGraphicsItem::GraphicsItemChange change, cons
         prepareGeometryChange();
         update();
         
-        // 🌟 强制更新编辑手柄位置 - 关键修复
-        if (editHandleManager()) {
-            editHandleManager()->updateHandles();
-        }
+        // 老的手柄系统已移除，不再需要更新
+        // if (editHandleManager()) {
+        //     editHandleManager()->updateHandles();
+        // }
     }
     
     // 位置变化也需要更新（虽然 Qt 应该自动处理）
@@ -725,21 +731,21 @@ QVariant DrawingGroup::itemChange(QGraphicsItem::GraphicsItemChange change, cons
         prepareGeometryChange();
         update();
         
-        // 🌟 强制更新编辑手柄位置 - 关键修复
-        if (editHandleManager()) {
-            editHandleManager()->updateHandles();
-        }
+        // 老的手柄系统已移除，不再需要更新
+        // if (editHandleManager()) {
+        //     editHandleManager()->updateHandles();
+        // }
     }
     
-    // 🌟 选择状态变化时也要更新手柄显示
+    // 老的手柄系统已移除，不再需要更新手柄显示
     else if (change == ItemSelectedHasChanged) {
-        if (editHandleManager()) {
-            if (isSelected()) {
-                editHandleManager()->showHandles();
-            } else {
-                editHandleManager()->hideHandles();
-            }
-        }
+        // if (editHandleManager()) {
+        //     if (isSelected()) {
+        //         editHandleManager()->showHandles();
+        //     } else {
+        //         editHandleManager()->hideHandles();
+        //     }
+        // }
     }
     
     return DrawingShape::itemChange(change, value);

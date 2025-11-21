@@ -8,9 +8,9 @@
 #include <QPointF>
 #include <QPainter>
 #include "drawing-shape.h"
-#include "drawing-edit-handles.h"
 
-class EditHandleManager;
+
+// class EditHandleManager; // 已弃用 - 使用新的手柄系统
 
 class DrawingShape;
 class DrawingScene;
@@ -48,7 +48,7 @@ public:
     void applyScale(const QPointF &anchor, qreal sx, qreal sy);
     void applyRotation(qreal angle, const QPointF &center);
     
-    // 🌟 添加支持手柄类型的完整变换方法（参考drawing-edit-handles）
+    // 🌟 添加支持手柄类型的完整变换方法
     void applyScaleWithHandle(int handleType, const QPointF &initialHandlePos, const QPointF &currentHandlePos);
     void applyRotationWithHandle(const QPointF &center, double angleDelta);
     

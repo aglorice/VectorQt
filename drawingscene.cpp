@@ -2,8 +2,7 @@
 #include "drawingscene.h"
 #include "drawing-shape.h"
 #include "drawing-group.h"
-#include "selection-layer.h"
-#include "drawing-edit-handles.h"
+
 #include <QGraphicsSceneMouseEvent>
 #include <QKeyEvent>
 #include <QUndoCommand>
@@ -68,31 +67,55 @@ class RemoveItemCommand : public QUndoCommand
 {
 public:
     RemoveItemCommand(DrawingScene *scene, QGraphicsItem *item, QUndoCommand *parent = nullptr)
-        : QUndoCommand("删除项目", parent), m_scene(scene), m_item(item) {}
+        : QUndoCommand("删除项目", parent), m_scene(scene), m_item(item), m_wasInScene(false)
+    {
+        // 记录删除前的状态
+        if (m_item && m_item->scene() == m_scene) {
+            m_wasInScene = true;
+            m_itemVisible = m_item->isVisible();
+        }
+    }
     
     void undo() override {
-        if (m_item && m_item->scene() != m_scene) {
+        if (m_item && m_scene) {
+            // 确保item不在任何场景中，避免重复添加
+            if (m_item->scene()) {
+                m_item->scene()->removeItem(m_item);
+            }
+            // 添加回场景
             m_scene->addItem(m_item);
-            m_item->setVisible(true);
+            m_item->setVisible(m_itemVisible);
             qDebug() << "RemoveItemCommand::undo - added item back to scene";
         }
     }
     
     void redo() override {
-        if (m_item && m_item->scene() == m_scene) {
-            m_scene->removeItem(m_item);
-            m_item->setVisible(false);
-            qDebug() << "RemoveItemCommand::redo - removed item from scene";
+        if (m_item && m_scene) {
+            // 只有当item在场景中时才移除
+            if (m_item->scene() == m_scene) {
+                m_scene->removeItem(m_item);
+                m_item->setVisible(false);
+                qDebug() << "RemoveItemCommand::redo - removed item from scene";
+            }
         }
     }
     
     ~RemoveItemCommand() override {
-        // QGraphicsScene会自动管理item的生命周期，不需要手动删除
+        // 只有从未加入过scene的对象才需要手动删除
+        // 如果对象曾经被加入过scene，scene会管理它的生命周期
+        if (m_item && !m_wasInScene) {
+            delete m_item;
+            qDebug() << "RemoveItemCommand::~RemoveItemCommand - deleted item that was never in scene";
+        } else {
+            qDebug() << "RemoveItemCommand::~RemoveItemCommand - cleanup";
+        }
     }
     
 private:
     DrawingScene *m_scene;
     QGraphicsItem *m_item;
+    bool m_wasInScene;
+    bool m_itemVisible = true;
 };
 
 class TransformCommand : public QUndoCommand
@@ -211,10 +234,7 @@ public:
                 shape->setTransform(state.transform);
                 shape->setRotation(state.rotation);
                 
-                // 更新手柄位置
-                if (shape->editHandleManager()) {
-                    shape->editHandleManager()->updateHandles();
-                }
+                // 老的手柄系统已移除，不再需要更新手柄位置
             } else {
                 qDebug() << "  Shape" << i << "is invalid or not in scene (possibly deleted)";
                 // 图形可能已被删除，跳过此操作但不报错
@@ -246,10 +266,7 @@ public:
                 shape->setTransform(state.transform);
                 shape->setRotation(state.rotation);
                 
-                // 更新手柄位置
-                if (shape->editHandleManager()) {
-                    shape->editHandleManager()->updateHandles();
-                }
+                // 老的手柄系统已移除，不再需要更新手柄位置
             } else {
                 qDebug() << "  Shape" << i << "is invalid or not in scene (possibly deleted)";
                 // 图形可能已被删除，跳过此操作但不报错
@@ -277,7 +294,7 @@ private:
 DrawingScene::DrawingScene(QObject *parent)
     : QGraphicsScene(parent)
     , m_isModified(false)
-    , m_selectionLayer(nullptr)
+    // , m_selectionLayer(nullptr) // 已移除 - 老的选择层系统
     , m_gridVisible(false)
     , m_gridAlignmentEnabled(true)
     , m_gridSize(20)
@@ -462,15 +479,31 @@ void DrawingScene::keyPressEvent(QKeyEvent *event)
     if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
         QList<QGraphicsItem*> selected = selectedItems();
         if (!selected.isEmpty()) {
-            // 先清除选择，避免在删除过程中出现问题
-            clearSelection();
+            // 创建删除命令列表，先不执行删除
+            QList<RemoveItemCommand*> deleteCommands;
             
             foreach (QGraphicsItem *item, selected) {
-                if (item) {
-                    m_undoStack.push(new RemoveItemCommand(this, item));
+                if (item && item->scene() == this) {
+                    // 只处理仍在当前场景中的项目
+                    deleteCommands.append(new RemoveItemCommand(this, item));
                 }
             }
-            setModified(true);
+            
+            // 只有在有有效项目时才清除选择并执行删除
+            if (!deleteCommands.isEmpty()) {
+                // 先执行删除命令（这会自动从场景中移除对象）
+                foreach (RemoveItemCommand *command, deleteCommands) {
+                    m_undoStack.push(command);
+                }
+                
+                // 删除完成后清除选择，这会触发selectionChanged信号
+                clearSelection();
+                // 强制触发selectionChanged信号，确保选择工具能清理无效引用
+                emit selectionChanged();
+                setModified(true);
+                
+                qDebug() << "Deleted" << deleteCommands.size() << "items from scene";
+            }
         }
         event->accept();
     } else {
@@ -529,17 +562,12 @@ void DrawingScene::updateSelection()
         if (shape && !selectedShapes.contains(shape)) {
             // 额外检查对象是否有效
             if (shape->scene() == this) {
-                shape->setEditHandlesEnabled(false);
+                // 老的手柄系统已移除，不再需要禁用编辑把手
             }
         }
     }
     
-    // 启用选中图形的编辑把手
-    for (DrawingShape *shape : selectedShapes) {
-        if (shape && shape->scene() == this) {  // 确保形状仍然在场景中
-            shape->setEditHandlesEnabled(true);
-        }
-    }
+    // 考的手柄系统已移除，不再需要启用编辑把手
     
     // 恢复信号状态
     blockSignals(wasBlocked);
@@ -559,10 +587,10 @@ void DrawingScene::activateSelectionTool()
         // qDebug() << "Connecting selectionChanged signal";
         connect(this, &DrawingScene::selectionChanged, this, &DrawingScene::onSelectionChanged);
         
-        // 立即更新一次选择状态
-        if (this->selectionLayer()) {
-            this->selectionLayer()->updateSelectionBounds();
-        }
+        // 老的选择层系统已移除，不再需要更新
+        // if (this->selectionLayer()) {
+        //     this->selectionLayer()->updateSelectionBounds();
+        // }
     }
 }
 
