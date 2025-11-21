@@ -11,6 +11,7 @@
 DrawingToolFill::DrawingToolFill(QObject *parent)
     : ToolBase(parent)
     , m_currentFillColor(Qt::blue)
+    , m_tolerance(32)  // 默认容差值
 {
 }
 
@@ -128,5 +129,10 @@ QColor DrawingToolFill::getCurrentFillColor() const
 void DrawingToolFill::onFillColorChanged(const QColor &color)
 {
     m_currentFillColor = color;
+}
+
+void DrawingToolFill::setTolerance(int tolerance)
+{
+    m_tolerance = qBound(0, tolerance, 255);  // 限制在0-255范围内
 }
 

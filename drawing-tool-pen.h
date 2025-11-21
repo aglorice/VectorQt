@@ -54,6 +54,11 @@ public slots:
     void setBrushWidth(qreal width);
     void setPressureSensitivity(qreal sensitivity);
     void togglePressureSupport(bool enabled);
+    
+    // 获取当前设置
+    qreal strokeWidthForPanel() const { return m_strokeWidth; }
+    bool pressureSupportEnabled() const { return m_pressureSupport; }
+    int pressureSensitivityForPanel() const { return static_cast<int>(m_pressureSensitivity * 100); }
 
 private:
     // 添加锚点

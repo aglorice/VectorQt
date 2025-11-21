@@ -2,6 +2,8 @@
 #include "drawingscene.h"
 #include "drawingview.h"
 #include "drawing-shape.h"
+#include "drawing-layer.h"
+#include "layer-manager.h"
 #include "mainwindow.h"
 #include "colorpalette.h"
 #include <QGraphicsScene>
@@ -304,8 +306,18 @@ void DrawingToolPen::createPathShape()
     pathShape->setFillBrush(QBrush(m_currentFillColor));
     pathShape->setZValue(1);
     
-    // 添加到场景
-    m_scene->addItem(pathShape);
+    // 添加到活动图层
+    LayerManager *layerManager = LayerManager::instance();
+    DrawingLayer *activeLayer = layerManager ? layerManager->activeLayer() : nullptr;
+    
+    if (activeLayer) {
+        activeLayer->addShape(pathShape);
+        qDebug() << "Added pathShape to active layer:" << activeLayer->name();
+    } else {
+        // 如果没有活动图层，直接添加到场景（向后兼容）
+        m_scene->addItem(pathShape);
+        qDebug() << "No active layer, added pathShape directly to scene";
+    }
     
     // 设置为选中状态，这样用户可以看到选择框
     pathShape->setShowSelectionIndicator(false);
@@ -526,8 +538,19 @@ void DrawingToolPen::beginFreeDraw(const QPointF &scenePos)
     m_currentPath->setStrokePen(pen);
     m_currentPath->setFillBrush(Qt::NoBrush);
     
-    // 添加到场景
-    m_scene->addItem(m_currentPath);
+    // 添加到活动图层
+    LayerManager *layerManager = LayerManager::instance();
+    DrawingLayer *activeLayer = layerManager ? layerManager->activeLayer() : nullptr;
+    
+    if (activeLayer) {
+        activeLayer->addShape(m_currentPath);
+        qDebug() << "Added currentPath to active layer:" << activeLayer->name();
+    } else {
+        // 如果没有活动图层，直接添加到场景（向后兼容）
+        m_scene->addItem(m_currentPath);
+        qDebug() << "No active layer, added currentPath directly to scene";
+    }
+    
     m_currentPath->setVisible(true);
     m_currentPath->setFlag(QGraphicsItem::ItemIsSelectable, true);
     

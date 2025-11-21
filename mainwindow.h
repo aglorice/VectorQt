@@ -23,6 +23,10 @@ class DrawingCanvas;
 class ToolBase;
 class OutlinePreviewTransformTool;
 class PropertyPanel;
+class TabbedPropertyPanel;
+class ToolsPanel;
+class LayerPanel;
+class LayerManager;
 class Ruler;
 class ColorPalette;
 class PathEditor;
@@ -67,6 +71,22 @@ private slots:
     void lineTool();
     void pathEditTool();
     // void textTool()  // Not implemented yet
+    
+    // 工具面板槽函数
+    void onBrushSizeChanged(int size);
+    void onBrushOpacityChanged(int opacity);
+    void onBrushSmoothingChanged(int smoothing);
+    void onEraserSizeChanged(int size);
+    void onFillToleranceChanged(int tolerance);
+    void onStrokeWidthChanged(double width);
+    void onAntialiasingChanged(bool enabled);
+    void onSnapToGridChanged(bool enabled);
+    
+    // 钢笔工具特定设置
+    void onPenPressureSupportChanged(bool enabled);
+    void onPenJoinStyleChanged(int style);
+    void onPenCapStyleChanged(int style);
+    
     void deleteSelected();
     void copySelected();
     void paste();
@@ -132,7 +152,9 @@ private:
     DrawingScene *m_scene;
     DrawingCanvas *m_canvas;
     PropertyPanel *m_propertyPanel;
+    TabbedPropertyPanel *m_tabbedPropertyPanel;
     QUndoView *m_undoView;
+    LayerManager *m_layerManager;
     ToolBase *m_currentTool;
     ToolBase *m_outlinePreviewTool;      // 选择工具（轮廓预览变换）
     

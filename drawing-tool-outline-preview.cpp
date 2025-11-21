@@ -822,7 +822,6 @@ void OutlinePreviewTransformTool::onSelectionChanged()
 {
     // 清理无效的图形引用（已被删除的对象）
     cleanupInvalidShapes();
-    qDebug() << "Selection changed";
     // 更新UI
     //  disableInternalSelectionIndicators();
 

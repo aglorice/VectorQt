@@ -1,22 +1,24 @@
 #ifndef DRAWINGLAYER_H
 #define DRAWINGLAYER_H
 
-#include <QGraphicsItem>
+#include <QObject>
 #include <QList>
 #include <QString>
-#include <QPainter>
-#include <QStyleOptionGraphicsItem>
 #include <QDomElement>
+#include <QTransform>
 
 class DrawingShape;
+class DrawingScene;
 
 /**
- * 绘图层类 - 管理图层和图层中的图形
+ * 绘图层类 - 纯数据管理类，管理图层和图层中的图形
  */
-class DrawingLayer : public QGraphicsItem
+class DrawingLayer : public QObject
 {
+    Q_OBJECT
+
 public:
-    explicit DrawingLayer(const QString &name = "Layer", QGraphicsItem *parent = nullptr);
+    explicit DrawingLayer(const QString &name = "Layer", QObject *parent = nullptr);
     ~DrawingLayer();
     
     // 图层属性
@@ -37,12 +39,9 @@ public:
     void removeShape(DrawingShape *shape);
     QList<DrawingShape*> shapes() const { return m_shapes; }
     
-    // QGraphicsItem接口
-    enum { Type = UserType + 100 };  // 唯一的类型值
-    int type() const override { return Type; }
-    
-    QRectF boundingRect() const override;
-    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+    // 场景管理
+    void setScene(DrawingScene *scene);
+    DrawingScene *scene() const { return m_scene; }
     
     // 图层变换
     void setLayerTransform(const QTransform &transform);
@@ -52,6 +51,11 @@ public:
     void parseFromSvg(const QDomElement &element);
     QDomElement exportToSvg(QDomDocument &doc) const;
 
+signals:
+    void visibilityChanged(bool visible);
+    void opacityChanged(qreal opacity);
+    void nameChanged(const QString &name);
+
 private:
     QString m_name;
     bool m_visible;
@@ -59,10 +63,7 @@ private:
     bool m_locked;
     QList<DrawingShape*> m_shapes;
     QTransform m_layerTransform;
-    mutable QRectF m_boundingRect;
-    mutable bool m_boundingRectDirty;
-    
-    void updateBoundingRect() const;
+    DrawingScene *m_scene;
 };
 
 #endif // DRAWINGLAYER_H

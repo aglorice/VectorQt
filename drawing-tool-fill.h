@@ -33,6 +33,13 @@ public slots:
     // 响应颜色变化
     void onFillColorChanged(const QColor &color);
     
+    // 设置填充容差
+    void setTolerance(int tolerance);
+    
+    // 获取填充容差
+    int getTolerance() const { return m_tolerance; }
+    int toleranceForPanel() const { return m_tolerance; }
+    
 private:
     // 检查点是否在封闭图形内
     DrawingShape* findEnclosedShape(const QPointF &scenePos);
@@ -41,6 +48,7 @@ private:
     QColor getCurrentFillColor() const;
     
     QColor m_currentFillColor;
+    int m_tolerance;  // 填充容差
 };
 
 #endif // DRAWING_TOOL_FILL_H

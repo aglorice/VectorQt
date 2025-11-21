@@ -4,6 +4,8 @@
 #include "drawingscene.h"
 #include "drawingview.h"
 #include "drawing-shape.h"
+#include "drawing-layer.h"
+#include "layer-manager.h"
 #include <QGraphicsScene>
 #include <QMouseEvent>
 #include <QPainterPath>
@@ -71,8 +73,19 @@ bool DrawingToolBrush::mousePressEvent(QMouseEvent *event, const QPointF &sceneP
         m_currentPath->setStrokePen(pen);
         m_currentPath->setFillBrush(Qt::NoBrush); // 确保绘制纯线条
         
-        // 添加到场景
-        m_scene->addItem(m_currentPath);
+        // 添加到活动图层
+        LayerManager *layerManager = LayerManager::instance();
+        DrawingLayer *activeLayer = layerManager ? layerManager->activeLayer() : nullptr;
+        
+        if (activeLayer) {
+            activeLayer->addShape(m_currentPath);
+            qDebug() << "Added DrawingPath to active layer:" << activeLayer->name();
+        } else {
+            // 如果没有活动图层，直接添加到场景（向后兼容）
+            m_scene->addItem(m_currentPath);
+            qDebug() << "No active layer, added DrawingPath directly to scene";
+        }
+        
         m_currentPath->setVisible(true);
         m_currentPath->setFlag(QGraphicsItem::ItemIsSelectable, true);
         

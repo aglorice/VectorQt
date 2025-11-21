@@ -58,8 +58,9 @@ set(SOURCES
     scrollable-toolbar.cpp
     # 图层系统
     drawing-layer.cpp
+    layer-manager.cpp
     # SVG处理
-    svghandler.cpp
+    # svghandler.cpp
     # 组合对象
     drawing-group.cpp
     # 颜色调色板
@@ -68,6 +69,14 @@ set(SOURCES
     patheditor.cpp
     # 光标管理器
     cursor-manager.cpp
+    # TabBar属性面板
+    tabbed-property-panel.cpp
+    # 图层管理面板
+    layer-panel.cpp
+    # 工具面板
+    tools-panel.cpp
+    # 页面设置面板
+    page-settings-panel.cpp
 )
 
 # 收集头文件
@@ -115,6 +124,7 @@ set(HEADERS
     scrollable-toolbar.h
     # 图层系统
     drawing-layer.h
+    layer-manager.h
     # SVG处理
     svghandler.h
     # 组合对象
@@ -125,6 +135,14 @@ set(HEADERS
     patheditor.h
     # 光标管理器
     cursor-manager.h
+    # TabBar属性面板
+    tabbed-property-panel.h
+    # 图层管理面板
+    layer-panel.h
+    # 工具面板
+    tools-panel.h
+    # 页面设置面板
+    page-settings-panel.h
 )
 
 # 收集资源文件

@@ -2,6 +2,8 @@
 #include "drawingview.h"
 #include "drawingscene.h"
 #include "drawing-shape.h"
+#include "drawing-layer.h"
+#include "layer-manager.h"
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QPen>
@@ -182,7 +184,18 @@ bool LegacyRectangleTool::mousePressEvent(QMouseEvent *event, const QPointF &sce
         m_currentItem->setPos(scenePos);  // 关键：使用setPos设置位置
         
         if (m_scene) {
-            m_scene->addItem(m_currentItem);
+            // 添加到活动图层
+            LayerManager *layerManager = LayerManager::instance();
+            DrawingLayer *activeLayer = layerManager ? layerManager->activeLayer() : nullptr;
+            
+            if (activeLayer) {
+                activeLayer->addShape(m_currentItem);
+                qDebug() << "Added rectangle to active layer:" << activeLayer->name();
+            } else {
+                // 如果没有活动图层，直接添加到场景（向后兼容）
+                m_scene->addItem(m_currentItem);
+                qDebug() << "No active layer, added rectangle directly to scene";
+            }
             // 暂时不选择，避免触发选择层
             // m_currentItem->setSelected(true);
         }
@@ -394,7 +407,18 @@ bool LegacyEllipseTool::mousePressEvent(QMouseEvent *event, const QPointF &scene
         m_currentItem->setPos(scenePos);  // 关键：使用setPos设置位置
         
         if (m_scene) {
-            m_scene->addItem(m_currentItem);
+            // 添加到活动图层
+            LayerManager *layerManager = LayerManager::instance();
+            DrawingLayer *activeLayer = layerManager ? layerManager->activeLayer() : nullptr;
+            
+            if (activeLayer) {
+                activeLayer->addShape(m_currentItem);
+                qDebug() << "Added ellipse to active layer:" << activeLayer->name();
+            } else {
+                // 如果没有活动图层，直接添加到场景（向后兼容）
+                m_scene->addItem(m_currentItem);
+                qDebug() << "No active layer, added ellipse directly to scene";
+            }
             // 暂时不选择，避免触发选择层
             // m_currentItem->setSelected(true);
         }

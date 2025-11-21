@@ -38,6 +38,9 @@ public:
     // 获取当前状态
     qreal brushWidth() const { return m_brushWidth; }
     qreal smoothness() const { return m_smoothness; }
+    int brushOpacity() const { return 100; }  // TODO: 实现不透明度
+    int brushSizeForPanel() const { return static_cast<int>(m_brushWidth); }
+    int brushSmoothingForPanel() const { return static_cast<int>(m_smoothness * 100); }
 
 private:
     // 平滑路径（保留兼容性）

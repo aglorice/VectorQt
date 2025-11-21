@@ -47,6 +47,7 @@ public:
     
     // 获取橡皮擦大小
     qreal getEraserSize() const { return m_eraserSize; }
+    int eraserSizeForPanel() const { return static_cast<int>(m_eraserSize); }
 
 private:
     // 查找擦除区域内的图形

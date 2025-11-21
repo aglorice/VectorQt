@@ -4,6 +4,14 @@
 #include "drawing-canvas.h"
 #include "toolbase.h"
 #include "propertypanel.h"
+#include "tabbed-property-panel.h"
+#include "tools-panel.h"
+#include "drawing-tool-brush.h"
+#include "drawing-tool-pen.h"
+#include "drawing-tool-eraser.h"
+#include "drawing-tool-fill.h"
+#include "layer-manager.h"
+#include "layer-panel.h"
 #include "drawing-tool-bezier.h"
 // #include "drawing-tool-bezier-edit.h" // 已移除 - 待重新实现
 #include "drawing-tool-node-edit.h"
@@ -24,7 +32,7 @@
 // #include "layermanager.h"  // Not implemented yet
 // #include "layerpanel.h"    // Not implemented yet
 // #include "advancedtools.h" // Not implemented yet
-#include "svghandler.h"
+// #include "svghandler.h"  // 暂时禁用SVG功能
 #include <algorithm>
 #include "drawing-shape.h"
 #include "colorpalette.h"
@@ -51,7 +59,7 @@
 #include <QIcon>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), m_scene(nullptr), m_canvas(nullptr), m_propertyPanel(nullptr), m_undoView(nullptr), m_currentTool(nullptr), m_outlinePreviewTool(nullptr), m_rectangleTool(nullptr), m_ellipseTool(nullptr), m_bezierTool(nullptr),
+    : QMainWindow(parent), m_scene(nullptr), m_canvas(nullptr), m_propertyPanel(nullptr), m_tabbedPropertyPanel(nullptr), m_undoView(nullptr), m_layerManager(nullptr), m_currentTool(nullptr), m_outlinePreviewTool(nullptr), m_rectangleTool(nullptr), m_ellipseTool(nullptr), m_bezierTool(nullptr),
       m_colorPalette(nullptr), m_scrollableToolBar(nullptr),
       m_horizontalRuler(nullptr), m_verticalRuler(nullptr), m_cornerWidget(nullptr), m_isModified(false)
 {
@@ -642,25 +650,77 @@ void MainWindow::setupToolbars()
 
 void MainWindow::setupDocks()
 {
-    // Properties dock
-    QDockWidget *propertiesDock = new QDockWidget("属性", this);
-    m_propertyPanel = new PropertyPanel(propertiesDock);
-    m_propertyPanel->setScene(m_scene);
-    propertiesDock->setWidget(m_propertyPanel);
+    // 使用单例模式获取图层管理器
+    m_layerManager = LayerManager::instance();
+    
+    // Create TabBar property panel
+    m_tabbedPropertyPanel = new TabbedPropertyPanel(this);
+    m_tabbedPropertyPanel->setScene(m_scene);
+    if (m_canvas && m_canvas->view()) {
+        m_tabbedPropertyPanel->setView(m_canvas->view());
+    }
+    
+    // 连接图层管理器
+    if (m_layerManager) {
+        qDebug() << "Connecting layer manager in setupDocks";
+        LayerPanel *layerPanel = m_tabbedPropertyPanel->getLayersPanel();
+        if (layerPanel) {
+            qDebug() << "Found layer panel in setupDocks, setting scene and layer manager";
+            layerPanel->setScene(m_scene);
+            m_layerManager->setLayerPanel(layerPanel);
+        } else {
+            qDebug() << "No layer panel found in setupDocks";
+        }
+        m_layerManager->setScene(m_scene);
+    } else {
+        qDebug() << "No layer manager available in setupDocks";
+    }
+    
+    // 连接工具面板信号到槽函数
+    ToolsPanel *toolsPanel = m_tabbedPropertyPanel->getToolsPanel();
+    if (toolsPanel) {
+        connect(toolsPanel, &ToolsPanel::brushSizeChanged, this, &MainWindow::onBrushSizeChanged);
+        connect(toolsPanel, &ToolsPanel::brushOpacityChanged, this, &MainWindow::onBrushOpacityChanged);
+        connect(toolsPanel, &ToolsPanel::brushSmoothingChanged, this, &MainWindow::onBrushSmoothingChanged);
+        connect(toolsPanel, &ToolsPanel::eraserSizeChanged, this, &MainWindow::onEraserSizeChanged);
+        connect(toolsPanel, &ToolsPanel::fillToleranceChanged, this, &MainWindow::onFillToleranceChanged);
+        connect(toolsPanel, &ToolsPanel::strokeWidthChanged, this, &MainWindow::onStrokeWidthChanged);
+        connect(toolsPanel, &ToolsPanel::antialiasingChanged, this, &MainWindow::onAntialiasingChanged);
+        connect(toolsPanel, &ToolsPanel::snapToGridChanged, this, &MainWindow::onSnapToGridChanged);
+        connect(toolsPanel, &ToolsPanel::penPressureSupportChanged, this, &MainWindow::onPenPressureSupportChanged);
+        connect(toolsPanel, &ToolsPanel::penJoinStyleChanged, this, &MainWindow::onPenJoinStyleChanged);
+        connect(toolsPanel, &ToolsPanel::penCapStyleChanged, this, &MainWindow::onPenCapStyleChanged);
+    }
+    
+    // 连接图层管理器
+    if (m_layerManager) {
+        qDebug() << "Connecting layer manager";
+        LayerPanel *layerPanel = m_tabbedPropertyPanel->getLayersPanel();
+        if (layerPanel) {
+            qDebug() << "Found layer panel, setting scene and layer manager";
+            layerPanel->setScene(m_scene);
+            m_layerManager->setLayerPanel(layerPanel);
+        } else {
+            qDebug() << "No layer panel found";
+        }
+        m_layerManager->setScene(m_scene);
+    } else {
+        qDebug() << "No layer manager available";
+    }
+    
+    // Properties dock with TabBar layout
+    QDockWidget *propertiesDock = new QDockWidget(tr("面板"), this);
+    propertiesDock->setWidget(m_tabbedPropertyPanel);
     addDockWidget(Qt::RightDockWidgetArea, propertiesDock);
+    
+    // Keep reference to the old property panel for compatibility
+    m_propertyPanel = m_tabbedPropertyPanel->getPropertiesPanel();
 
-    // Undo history dock
-    QDockWidget *historyDock = new QDockWidget("历史记录", this);
+    // Undo history dock - now integrated into TabBar panel
+    QDockWidget *historyDock = new QDockWidget(tr("历史记录"), this);
     m_undoView = new QUndoView(m_scene->undoStack(), historyDock);
     historyDock->setWidget(m_undoView);
     addDockWidget(Qt::RightDockWidgetArea, historyDock);
-
-    // Layer panel dock - Not implemented yet
-    // QDockWidget *layerDock = new QDockWidget("图层", this);
-    // LayerPanel *layerPanel = new LayerPanel(layerDock);
-    // layerPanel->setLayerManager(m_layerManager);
-    // layerDock->setWidget(layerPanel);
-    // addDockWidget(Qt::RightDockWidgetArea, layerDock);
 }
 
 void MainWindow::setupStatusBar()
@@ -1043,6 +1103,11 @@ void MainWindow::setCurrentTool(ToolBase *tool)
         {
             drawingView->setCurrentTool(m_currentTool);
         }
+        
+        // 更新工具面板显示当前工具设置
+        if (m_tabbedPropertyPanel && m_tabbedPropertyPanel->getToolsPanel()) {
+            m_tabbedPropertyPanel->getToolsPanel()->setCurrentTool(m_currentTool);
+        }
     }
     
     // 如果切换到非选择工具且不是节点编辑工具或轮廓预览工具，在工具激活后清除场景中的选择
@@ -1164,6 +1229,11 @@ void MainWindow::newFile()
     m_scene->clearScene();
     m_currentFile.clear();
     m_isModified = false;
+    
+    // 重置图层管理器
+    if (m_layerManager) {
+        m_layerManager->setScene(m_scene);
+    }
     updateUI();
     m_statusLabel->setText("新文档已创建");
 }
@@ -1179,7 +1249,8 @@ void MainWindow::openFile()
         if (fileInfo.suffix().toLower() == "svg")
         {
             // SVG导入
-            if (SvgHandler::importFromSvg(m_scene, fileName)) {
+            // if (false && SvgHandler::importFromSvg(m_scene, fileName)) {  // 暂时禁用
+    if (false) {  // 暂时禁用SVG导入
                 m_currentFile = fileName;
                 m_isModified = false;
                 updateUI(); // 更新窗口标题
@@ -1212,7 +1283,8 @@ void MainWindow::saveFile()
     else
     {
         // 保存为 SVG 文件
-        if (SvgHandler::exportToSvg(m_scene, m_currentFile)) {
+        // if (SvgHandler::exportToSvg(m_scene, m_currentFile)) {
+    if (false) {  // 暂时禁用SVG导出
             m_isModified = false;
             m_statusLabel->setText(QString("文档已保存: %1").arg(QFileInfo(m_currentFile).fileName()));
         } else {
@@ -1236,7 +1308,8 @@ void MainWindow::saveFileAs()
         m_currentFile = fileName;
         
         // 保存为 SVG 文件
-        if (SvgHandler::exportToSvg(m_scene, m_currentFile)) {
+        // if (false && SvgHandler::exportToSvg(m_scene, m_currentFile)) {  // 暂时禁用
+    if (false) {  // 暂时禁用SVG导出
             m_isModified = false;
             m_statusLabel->setText(QString("文档已保存: %1").arg(QFileInfo(m_currentFile).fileName()));
         } else {
@@ -1252,7 +1325,8 @@ void MainWindow::exportFile()
 
     if (!fileName.isEmpty())
     {
-        if (SvgHandler::exportToSvg(m_scene, fileName)) {
+        // if (false && SvgHandler::exportToSvg(m_scene, fileName)) {  // 暂时禁用
+    if (false) {  // 暂时禁用SVG导出
             m_statusLabel->setText(QString("文档已导出到: %1").arg(QFileInfo(fileName).fileName()));
         } else {
             QMessageBox::warning(this, "导出错误", "无法导出SVG文件");
@@ -1353,6 +1427,101 @@ void MainWindow::pathEditTool()
 // }
 
 // updateZoomLabel implementation is below
+
+// 工具面板槽函数实现
+void MainWindow::onBrushSizeChanged(int size)
+{
+    if (m_brushTool) {
+        DrawingToolBrush *brushTool = qobject_cast<DrawingToolBrush*>(m_brushTool);
+        if (brushTool) {
+            brushTool->setBrushWidth(size);
+        }
+    }
+}
+
+void MainWindow::onBrushOpacityChanged(int opacity)
+{
+    // TODO: 实现画笔不透明度设置
+    // 目前画笔工具还没有不透明度参数
+}
+
+void MainWindow::onBrushSmoothingChanged(int smoothing)
+{
+    if (m_brushTool) {
+        DrawingToolBrush *brushTool = qobject_cast<DrawingToolBrush*>(m_brushTool);
+        if (brushTool) {
+            brushTool->setSmoothness(smoothing / 100.0); // 转换为0-1范围
+        }
+    }
+}
+
+void MainWindow::onEraserSizeChanged(int size)
+{
+    if (m_eraserTool) {
+        DrawingToolEraser *eraserTool = qobject_cast<DrawingToolEraser*>(m_eraserTool);
+        if (eraserTool) {
+            eraserTool->setEraserSize(size);
+        }
+    }
+}
+
+void MainWindow::onFillToleranceChanged(int tolerance)
+{
+    if (m_fillTool) {
+        DrawingToolFill *fillTool = qobject_cast<DrawingToolFill*>(m_fillTool);
+        if (fillTool) {
+            fillTool->setTolerance(tolerance);
+        }
+    }
+}
+
+void MainWindow::onStrokeWidthChanged(double width)
+{
+    // 应用到钢笔工具
+    if (m_penTool) {
+        DrawingToolPen *penTool = qobject_cast<DrawingToolPen*>(m_penTool);
+        if (penTool) {
+            penTool->setBrushWidth(width);
+        }
+    }
+    
+    // TODO: 也可以应用到其他支持线宽的工具
+}
+
+void MainWindow::onAntialiasingChanged(bool enabled)
+{
+    // TODO: 实现抗锯齿设置
+    // 可能需要应用到视图渲染
+}
+
+void MainWindow::onSnapToGridChanged(bool enabled)
+{
+    if (m_scene) {
+        m_scene->setGridAlignmentEnabled(enabled);
+    }
+}
+
+void MainWindow::onPenPressureSupportChanged(bool enabled)
+{
+    if (m_penTool) {
+        DrawingToolPen *penTool = qobject_cast<DrawingToolPen*>(m_penTool);
+        if (penTool) {
+            penTool->togglePressureSupport(enabled);
+        }
+    }
+}
+
+void MainWindow::onPenJoinStyleChanged(int style)
+{
+    // TODO: 实现钢笔连接样式设置
+    // 需要在钢笔工具中添加相应的方法
+}
+
+void MainWindow::onPenCapStyleChanged(int style)
+{
+    // TODO: 实现钢笔端点样式设置
+    // 需要在钢笔工具中添加相应的方法
+}
 
 void MainWindow::deleteSelected()
 {

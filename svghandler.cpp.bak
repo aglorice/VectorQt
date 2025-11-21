@@ -1180,6 +1180,8 @@ QDomDocument SvgHandler::exportSceneToSvgDocument(DrawingScene *scene)
     
     for (QGraphicsItem *item : allItems) {
         // 跳过选择指示器等辅助元素
+        // TODO: 更新以适应新的DrawingLayer设计
+        /*
         if (item->type() == QGraphicsItem::UserType + 100) {
             // DrawingLayer
             DrawingLayer *layer = static_cast<DrawingLayer*>(item);
@@ -1194,8 +1196,12 @@ QDomDocument SvgHandler::exportSceneToSvgDocument(DrawingScene *scene)
                     contentBounds = contentBounds.united(layerBounds);
                 }
             }
-        } else {
-            DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+        }
+        }
+        }
+        */
+        
+        DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
             if (shape) {
                 shapes.append(shape);
                 // 使用 sceneBoundingRect 获取场景中的实际边界
