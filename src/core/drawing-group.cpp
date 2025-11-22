@@ -30,14 +30,24 @@ void DrawingGroup::addItem(DrawingShape *item)
         return;
     }
     
-    qDebug() << "Adding item to group - Qt will handle coordinate conversion";
+    qDebug() << "Adding item to group - handling coordinate conversion properly";
     
-    // 🌟 核心：仅设置父子关系，Qt 自动处理：
-    // 1. 坐标转换：item->scenePos() → 相对于组的本地坐标
-    // 2. 变换传播：组的变换自动应用到 item
-    // 3. 边界计算：childrenBoundingRect() 自动包含 item
+    // 🌟 关键修复：正确处理坐标转换
+    // 1. 保存对象在场景中的当前位置
+    QPointF itemScenePos = item->scenePos();
+    QTransform itemTransform = item->transform();
     
+    // 2. 设置父子关系（Qt 会自动转换坐标）
     item->setParentItem(this);
+    
+    // 3. 手动设置正确的本地位置，避免位置跳跃
+    // 将场景位置转换为相对于组的本地坐标
+    QPointF itemLocalPos = this->mapFromScene(itemScenePos);
+    item->setPos(itemLocalPos);
+    
+    // 4. 重置子对象的变换，避免二次变换
+    item->setTransform(QTransform());
+    
     m_items.append(item);
     
     // 让子对象不再响应独立的事件，由组统一处理
@@ -47,6 +57,8 @@ void DrawingGroup::addItem(DrawingShape *item)
     // 更新几何
     prepareGeometryChange();
     update();
+    
+    qDebug() << "Item added - scene pos:" << itemScenePos << "local pos:" << itemLocalPos;
 }
 
 void DrawingGroup::removeItem(DrawingShape *item)
@@ -55,14 +67,24 @@ void DrawingGroup::removeItem(DrawingShape *item)
         return;
     }
     
-    qDebug() << "Removing item from group - Qt will restore coordinates";
+    qDebug() << "Removing item from group - restoring coordinates properly";
     
-    // 🌟 核心：仅解除父子关系，Qt 自动处理：
-    // 1. 坐标恢复：本地坐标 → 场景坐标
-    // 2. 变换恢复：移除父对象变换的影响
-    // 3. 事件恢复：恢复独立的事件处理能力
+    // 🌟 关键修复：正确处理坐标恢复
+    // 1. 保存对象当前的本地位置
+    QPointF itemLocalPos = item->pos();
     
+    // 2. 计算对象应该恢复到的场景位置
+    QPointF itemScenePos = this->mapToScene(itemLocalPos);
+    
+    // 3. 解除父子关系
     item->setParentItem(nullptr);
+    
+    // 4. 恢复对象的场景位置
+    item->setPos(itemScenePos);
+    
+    // 5. 恢复单位变换
+    item->setTransform(QTransform());
+    
     m_items.removeOne(item);
     
     // 恢复子对象的能力
@@ -72,6 +94,8 @@ void DrawingGroup::removeItem(DrawingShape *item)
     // 更新几何
     prepareGeometryChange();
     update();
+    
+    qDebug() << "Item removed - local pos:" << itemLocalPos << "scene pos:" << itemScenePos;
 }
 
 QList<DrawingShape*> DrawingGroup::ungroup()
@@ -103,8 +127,30 @@ QRectF DrawingGroup::boundingRect() const
     // 🌟 使用 Qt 的标准方法，自动计算所有子对象的组合边界
     QRectF bounds = childrenBoundingRect();
     
+    // 添加调试信息
+    qDebug() << "Group boundingRect:" << bounds << "item count:" << m_items.size();
+    
     if (bounds.isEmpty()) {
-        return QRectF(0, 0, 1, 1);
+        // 如果没有子对象，返回最小边界
+        if (m_items.isEmpty()) {
+            return QRectF(0, 0, 1, 1);
+        } else {
+            // 如果有子对象但边界为空，手动计算
+            QRectF manualBounds;
+            for (DrawingShape *item : m_items) {
+                if (item) {
+                    QRectF itemBounds = item->boundingRect();
+                    QRectF itemBoundsInGroup = item->mapRectToParent(itemBounds);
+                    if (manualBounds.isEmpty()) {
+                        manualBounds = itemBoundsInGroup;
+                    } else {
+                        manualBounds |= itemBoundsInGroup;
+                    }
+                }
+            }
+            qDebug() << "Manual boundingRect:" << manualBounds;
+            return manualBounds;
+        }
     }
     
     return bounds;
