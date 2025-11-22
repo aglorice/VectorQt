@@ -585,12 +585,12 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
         // 获取初始变换
         QTransform originalTransform = m_originalTransforms.value(shape, QTransform());
 
-        // ✅ 为每个图形单独计算变换，使用统一的场景锚点
+        // 🌟 使用新的变换分量系统
         QTransform individualTransform;
 
         if (m_activeHandle == TransformHandle::Rotate)
         {
-            // Rotation: dynamically get current rotation center
+            // Rotation: 使用变换分量系统
             QPointF center = m_useCustomRotationCenter ? m_customRotationCenter : m_transformOrigin;
             qreal initialAngle = qAtan2(m_grabMousePos.y() - center.y(),
                                         m_grabMousePos.x() - center.x());
@@ -601,23 +601,31 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
             // 将旋转中心转换为该图形的本地坐标
             QPointF shapeLocalAnchor = shape->mapFromScene(center);
 
-            individualTransform.translate(shapeLocalAnchor.x(), shapeLocalAnchor.y());
-            individualTransform.rotate(rotation);
-            individualTransform.translate(-shapeLocalAnchor.x(), -shapeLocalAnchor.y());
+            // 🌟 使用 Rotate 变换分量
+            individualTransform = Rotate{rotation, shapeLocalAnchor}.toTransform();
         }
         else
         {
-            // Scale: calculate scale for each shape based on scene anchor
+            // Scale: 使用变换分量系统
             // 将场景锚点转换为该图形的本地坐标
             QPointF shapeLocalAnchor = shape->mapFromScene(m_scaleAnchor);
 
-            individualTransform.translate(shapeLocalAnchor.x(), shapeLocalAnchor.y());
-            individualTransform.scale(sx, sy);
-            individualTransform.translate(-shapeLocalAnchor.x(), -shapeLocalAnchor.y());
+            // 🌟 使用 Scale 变换分量
+            individualTransform = Scale{QPointF(sx, sy), shapeLocalAnchor}.toTransform();
         }
 
         // 应用变换：原始变换 * 该图形的个别变换
         QTransform newTransform = originalTransform * individualTransform;
+        
+        // 🌟 调试输出：验证变换分量系统
+        if (m_activeHandle == TransformHandle::Rotate) {
+            qDebug() << "应用旋转变换 - 角度:" << (qAtan2(alignedPos.y() - (m_useCustomRotationCenter ? m_customRotationCenter : m_transformOrigin).y(),
+                                                     alignedPos.x() - (m_useCustomRotationCenter ? m_customRotationCenter : m_transformOrigin).x()) - 
+                                           qAtan2(m_grabMousePos.y() - (m_useCustomRotationCenter ? m_customRotationCenter : m_transformOrigin).y(),
+                                                     m_grabMousePos.x() - (m_useCustomRotationCenter ? m_customRotationCenter : m_transformOrigin).x())) * 180.0 / M_PI;
+        } else {
+            qDebug() << "应用缩放变换 - sx:" << sx << "sy:" << sy;
+        }
         
         shape->setTransform(newTransform);
         shape->updateShape(); // 刷新图形的边界和碰撞检测

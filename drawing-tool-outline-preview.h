@@ -3,6 +3,7 @@
 
 #include "toolbase.h"
 #include "handle-item.h"
+#include "transform-components.h"
 #include <QGraphicsScene>
 #include <QGraphicsItem>
 #include <QGraphicsSceneMouseEvent>

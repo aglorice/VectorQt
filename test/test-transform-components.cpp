@@ -34,10 +34,11 @@ void testTransformComponents()
     // 3. 链式操作测试
     qDebug() << "\n3. 链式操作测试:";
     
-    auto chainTransform = QTransform() 
-        * Translate{QPointF(10, 20)} 
-        * Rotate{45, QPointF(50, 50)}
-        * Scale{QPointF(1.5, 1.5), QPointF(50, 50)};
+    // 使用 *= 运算符的链式操作
+    QTransform chainTransform;
+    chainTransform *= Translate{QPointF(10, 20)};
+    chainTransform *= Rotate{45, QPointF(50, 50)};
+    chainTransform *= Scale{QPointF(1.5, 1.5), QPointF(50, 50)};
     
     qDebug() << "链式变换结果:" << chainTransform;
     
@@ -98,13 +99,13 @@ void performanceTest()
     auto end = std::chrono::high_resolution_clock::now();
     auto traditionalTime = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     
-    // 测试新系统
+    // 测试新系统（使用 *= 运算符）
     start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < iterations; ++i) {
-        auto transform = QTransform() 
-            * Translate{QPointF(10, 20)} 
-            * Rotate{45, QPointF(0, 0)}
-            * Scale{QPointF(1.5, 1.5), QPointF(0, 0)};
+        QTransform transform;
+        transform *= Translate{QPointF(10, 20)};
+        transform *= Rotate{45, QPointF(0, 0)};
+        transform *= Scale{QPointF(1.5, 1.5), QPointF(0, 0)};
         transform.map(testPoint);
     }
     end = std::chrono::high_resolution_clock::now();

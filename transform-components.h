@@ -178,6 +178,27 @@ inline QTransform operator*(const Shear& lhs, const Scale& rhs) {
     return lhs.toTransform() * rhs.toTransform();
 }
 
+// QTransform 的 *= 运算符重载 - 支持直接叠加变换分量
+inline QTransform& operator*=(QTransform& lhs, const Translate& rhs) {
+    lhs = lhs * rhs.toTransform();
+    return lhs;
+}
+
+inline QTransform& operator*=(QTransform& lhs, const Rotate& rhs) {
+    lhs = lhs * rhs.toTransform();
+    return lhs;
+}
+
+inline QTransform& operator*=(QTransform& lhs, const Scale& rhs) {
+    lhs = lhs * rhs.toTransform();
+    return lhs;
+}
+
+inline QTransform& operator*=(QTransform& lhs, const Shear& rhs) {
+    lhs = lhs * rhs.toTransform();
+    return lhs;
+}
+
 inline Translate operator+(const Translate& a, const Translate& b) {
     return Translate(a.delta + b.delta);
 }
