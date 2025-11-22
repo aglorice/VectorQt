@@ -10,6 +10,8 @@ class DrawingGroup;
 class QGraphicsSceneMouseEvent;
 // class SelectionLayer; // 已移除 - 老的选择层系统
 class TransformCommand;
+class GroupCommand;
+class UngroupCommand;
 
 class DrawingScene : public QGraphicsScene
 {
@@ -49,6 +51,10 @@ public:
     
     void beginTransform(TransformType type = Generic);
     void endTransform();
+    
+    // 组合和取消组合操作
+    void groupSelectedItems();
+    void ungroupSelectedItems();
     void endTransformWithStates(const QList<TransformState>& newStates);
     
     // 网格功能

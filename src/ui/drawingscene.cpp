@@ -1,13 +1,12 @@
 #include <QGraphicsItem>
-#include "../ui/drawingscene.h"
-#include "../core/drawing-shape.h"
-#include "../core/drawing-group.h"
-
 #include <QGraphicsSceneMouseEvent>
 #include <QKeyEvent>
 #include <QUndoCommand>
 #include <QPainter>
 #include <QDebug>
+#include "../ui/drawingscene.h"
+#include "../core/drawing-shape.h"
+#include "../core/drawing-group.h"
 
 class AddItemCommand : public QUndoCommand
 {
@@ -289,6 +288,210 @@ private:
     QList<TransformState> m_oldStates;
     QList<TransformState> m_newStates;
     TransformType m_transformType;
+};
+
+// 组合撤销命令
+class GroupCommand : public QUndoCommand
+{
+public:
+    GroupCommand(DrawingScene *scene, const QList<DrawingShape*>& shapes, QUndoCommand *parent = nullptr)
+        : QUndoCommand("组合", parent), m_scene(scene), m_shapes(shapes)
+    {
+        // 保存原始父项关系
+        for (DrawingShape *shape : m_shapes) {
+            if (shape) {
+                m_originalParents.append(shape->parentItem());
+            }
+        }
+        
+        // 创建组合对象（但不添加到场景中，这将在redo中完成）
+        m_group = new DrawingGroup();
+        m_group->setFlag(QGraphicsItem::ItemIsMovable, true);
+        m_group->setFlag(QGraphicsItem::ItemIsSelectable, true);
+        m_group->setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
+        
+        // 计算组合位置
+        QRectF combinedBounds;
+        for (DrawingShape *shape : m_shapes) {
+            if (shape) {
+                QRectF itemBounds = shape->boundingRect();
+                itemBounds.translate(shape->pos());
+                if (combinedBounds.isEmpty()) {
+                    combinedBounds = itemBounds;
+                } else {
+                    combinedBounds |= itemBounds;
+                }
+            }
+        }
+        m_groupPosition = combinedBounds.center();
+    }
+    
+    void undo() override {
+        if (!m_scene || !m_group) return;
+        
+        // 清除选择
+        m_scene->clearSelection();
+        
+        // 从组合中移除所有项目并恢复到场景（检查对象有效性）
+        for (int i = 0; i < m_shapes.size(); ++i) {
+            DrawingShape *shape = m_shapes[i];
+            if (shape && shape->scene()) {
+                // 从组合中移除（DrawingGroup::removeItem会自动处理坐标转换）
+                m_group->removeItem(shape);
+                
+                // 恢复原始父项
+                if (m_originalParents[i]) {
+                    shape->setParentItem(m_originalParents[i]);
+                } else {
+                    // 如果原来没有父项，确保在场景中
+                    if (!shape->scene()) {
+                        m_scene->addItem(shape);
+                    }
+                }
+            }
+        }
+        
+        // 从场景中移除并删除组合对象
+        if (m_group->scene()) {
+            m_scene->removeItem(m_group);
+        }
+        delete m_group;
+        m_group = nullptr;
+        
+        m_scene->setModified(true);
+    }
+    
+    void redo() override {
+        if (!m_scene) return;
+        
+        // 如果组合对象已被删除，重新创建
+        if (!m_group) {
+            m_group = new DrawingGroup();
+            m_group->setFlag(QGraphicsItem::ItemIsMovable, true);
+            m_group->setFlag(QGraphicsItem::ItemIsSelectable, true);
+            m_group->setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
+        }
+        
+        // 设置组合位置
+        m_group->setPos(m_groupPosition);
+        
+        // 添加组合到场景
+        if (!m_group->scene()) {
+            m_scene->addItem(m_group);
+        }
+        
+        // 清除选择
+        m_scene->clearSelection();
+        
+        // 将所有形状添加到组合中（检查对象有效性）
+        for (DrawingShape *shape : m_shapes) {
+            if (shape && shape->scene()) {
+                // 确保对象仍然有效且在场景中
+                shape->setSelected(false);
+                m_group->addItem(shape);
+            }
+        }
+        
+        // 选中新创建的组合
+        m_group->setSelected(true);
+        
+        m_scene->setModified(true);
+    }
+    
+private:
+    DrawingScene *m_scene;
+    QList<DrawingShape*> m_shapes;
+    DrawingGroup *m_group;
+    QPointF m_groupPosition;
+    QList<QGraphicsItem*> m_originalParents;
+};
+
+// 取消组合撤销命令
+class UngroupCommand : public QUndoCommand
+{
+public:
+    UngroupCommand(DrawingScene *scene, DrawingGroup *group, QUndoCommand *parent = nullptr)
+        : QUndoCommand("取消组合", parent), m_scene(scene), m_group(group)
+    {
+        // 保存组合中的所有项目及其状态
+        if (m_group) {
+            m_shapes = m_group->items();
+            m_groupPosition = m_group->pos();
+            m_groupTransform = m_group->transform();
+            m_groupRotation = m_group->rotation();
+            m_groupSelected = m_group->isSelected();
+            
+            // 不需要保存任何子对象状态，让组合自己管理
+        }
+    }
+    
+    void undo() override {
+        if (!m_scene || !m_group) return;
+        
+        // 清除选择
+        m_scene->clearSelection();
+        
+        // 恢复组合状态
+        m_group->setPos(m_groupPosition);
+        m_group->setTransform(m_groupTransform);
+        m_group->setRotation(m_groupRotation);
+        
+        // 添加组合回场景
+        if (!m_group->scene()) {
+            m_scene->addItem(m_group);
+        }
+        
+        // 将所有项目重新添加到组合中（检查对象有效性）
+        for (int i = 0; i < m_shapes.size(); ++i) {
+            DrawingShape *shape = m_shapes[i];
+            if (shape && shape->scene()) {
+                // 确保对象仍然有效且在场景中
+                shape->setSelected(false);
+                m_group->addItem(shape);
+            }
+        }
+        
+        // 恢复组合的选择状态
+        m_group->setSelected(m_groupSelected);
+        
+        m_scene->setModified(true);
+    }
+    
+    void redo() override {
+        if (!m_scene || !m_group) return;
+        
+        // 清除选择
+        m_scene->clearSelection();
+        
+        // 将项目从组合中移除并添加到场景（检查对象有效性）
+        for (DrawingShape *shape : m_shapes) {
+            if (shape && shape->scene()) {
+                // 确保对象仍然有效且在场景中
+                m_group->removeItem(shape);
+                
+                // 确保项目在场景中
+                if (!shape->scene()) {
+                    m_scene->addItem(shape);
+                }
+            }
+        }
+        
+        // 从场景中移除组合
+        if (m_group->scene()) {
+            m_scene->removeItem(m_group);
+        }
+        
+        m_scene->setModified(true);
+    }
+    
+private:
+    DrawingScene *m_scene;
+    DrawingGroup *m_group;
+    QList<DrawingShape*> m_shapes;
+    QPointF m_groupPosition;
+    QTransform m_groupTransform;
+    qreal m_groupRotation;
+    bool m_groupSelected;
 };
 
 DrawingScene::DrawingScene(QObject *parent)
@@ -1354,4 +1557,60 @@ DrawingScene::RotateHintResult DrawingScene::calculateRotateHint(qreal angle, co
     }
     
     return result;
+}
+
+// 组合和取消组合操作的实现
+void DrawingScene::groupSelectedItems()
+{
+    QList<QGraphicsItem *> selected = selectedItems();
+    
+    if (selected.size() < 2) {
+        return; // 需要至少选择2个项目才能组合
+    }
+    
+    // 收集要组合的形状
+    QList<DrawingShape*> shapesToGroup;
+    for (QGraphicsItem *item : selected) {
+        if (item && item->parentItem() == nullptr) {  // 确保项目没有父项
+            DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
+            if (shape) {
+                shapesToGroup.append(shape);
+            }
+        }
+    }
+    
+    if (shapesToGroup.size() < 2) {
+        return; // 没有足够的形状可以组合
+    }
+    
+    // 创建并执行组合命令
+    GroupCommand *command = new GroupCommand(this, shapesToGroup);
+    m_undoStack.push(command);
+}
+
+void DrawingScene::ungroupSelectedItems()
+{
+    QList<QGraphicsItem *> selected = selectedItems();
+    
+    if (selected.isEmpty()) {
+        return; // 没有选中的项目
+    }
+    
+    // 查找选中的组合对象
+    QList<DrawingGroup*> groupsToUngroup;
+    for (QGraphicsItem *item : selected) {
+        if (item && item->type() == QGraphicsItem::UserType + 1) {
+            DrawingShape *shape = static_cast<DrawingShape*>(item);
+            if (shape && shape->shapeType() == DrawingShape::Group) {
+                DrawingGroup *group = static_cast<DrawingGroup*>(item);
+                groupsToUngroup.append(group);
+            }
+        }
+    }
+    
+    // 为每个组合对象创建取消组合命令
+    for (DrawingGroup *group : groupsToUngroup) {
+        UngroupCommand *command = new UngroupCommand(this, group);
+        m_undoStack.push(command);
+    }
 }

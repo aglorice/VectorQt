@@ -1,3 +1,23 @@
+#include <QMenuBar>
+#include <QClipboard>
+#include <QApplication>
+#include <QMimeData>
+#include <QMenu>
+#include <QTimer>
+#include <QToolBar>
+#include <QStatusBar>
+#include <QLabel>
+#include <QDockWidget>
+#include <QUndoView>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QApplication>
+#include <QInputDialog>
+#include <QColorDialog>
+#include <QScrollBar>
+#include <QIcon>
 #include "../ui/mainwindow.h"
 #include "../ui/drawingscene.h"
 #include "../ui/drawingview.h"
@@ -26,37 +46,13 @@
 #include "../tools/drawing-tool-path-edit.h"
 #include "../tools/drawing-tool-outline-preview.h"
 #include "../core/patheditor.h"
-// #include "selection-layer.h" // 已移除 - 老的选择层系统
 #include "../ui/ruler.h"
 #include "../ui/scrollable-toolbar.h"
-// #include "layermanager.h"  // Not implemented yet
-// #include "layerpanel.h"    // Not implemented yet
-// #include "advancedtools.h" // Not implemented yet
 #include "../core/svghandler.h"
 #include <algorithm>
 #include "../core/drawing-shape.h"
 #include "../ui/colorpalette.h"
 #include "../core/drawing-group.h"
-#include <QMenuBar>
-#include <QClipboard>
-#include <QApplication>
-#include <QMimeData>
-#include <QMenu>
-#include <QTimer>
-#include <QToolBar>
-#include <QStatusBar>
-#include <QLabel>
-#include <QDockWidget>
-#include <QUndoView>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QApplication>
-#include <QInputDialog>
-#include <QColorDialog>
-#include <QScrollBar>
-#include <QIcon>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_scene(nullptr), m_canvas(nullptr), m_propertyPanel(nullptr), m_tabbedPropertyPanel(nullptr), m_undoView(nullptr), m_layerManager(nullptr), m_currentTool(nullptr), m_outlinePreviewTool(nullptr), m_rectangleTool(nullptr), m_ellipseTool(nullptr), m_bezierTool(nullptr),
@@ -1957,7 +1953,6 @@ void MainWindow::groupSelected()
     if (!m_scene) return;
     
     QList<QGraphicsItem *> selected = m_scene->selectedItems();
-    // qDebug() << "groupSelected: selected items count:" << selected.size();
     
     if (selected.size() < 2) {
         // 如果没有选中足够多的项目，给出提示
@@ -1965,72 +1960,11 @@ void MainWindow::groupSelected()
         return;
     }
     
-    // 计算所有选中项目的边界
-    QRectF combinedBounds;
-    QList<DrawingShape*> shapesToGroup;
-    QList<QPointF> originalPositions;
+    // 使用场景的组合方法，这会创建撤销命令
+    m_scene->groupSelectedItems();
     
-    for (QGraphicsItem *item : selected) {
-        if (item && item->parentItem() == nullptr) {  // 确保项目没有父项
-            DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
-            if (shape) {
-                shapesToGroup.append(shape);
-                originalPositions.append(shape->pos());
-                
-                QRectF itemBounds = shape->boundingRect();
-                itemBounds.translate(shape->pos());
-                
-                if (combinedBounds.isEmpty()) {
-                    combinedBounds = itemBounds;
-                } else {
-                    combinedBounds |= itemBounds;
-                }
-            }
-        }
-    }
-    
-    // 创建自定义的DrawingGroup
-    DrawingGroup *group = new DrawingGroup();
-    // qDebug() << "groupSelected: created DrawingGroup at" << group;
-    
-    // 设置组的标志，确保它可以被选中和移动
-    group->setFlag(QGraphicsItem::ItemIsMovable, true);
-    group->setFlag(QGraphicsItem::ItemIsSelectable, true);
-    group->setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
-    
-    // 计算包围盒中心（关键！）
-    QPointF center = combinedBounds.center();
-    
-    // 🌟 先设置组合对象的位置到中心点
-    group->setPos(center);
-    
-    // qDebug() << "groupSelected: total shapes to group:" << shapesToGroup.size();
-    // qDebug() << "groupSelected: group position set to center" << center;
-    
-    // 将组添加到场景中
-    m_scene->addItem(group);
-    
-    // 将所有形状添加到组中
-    for (DrawingShape *shape : shapesToGroup) {
-        if (shape) {
-            // 清除形状的选择状态
-            shape->setSelected(false);
-            // 将形状添加到组合中
-            group->addItem(shape);
-            // qDebug() << "groupSelected: added shape to group, shape type:" << shape->type();
-        }
-    }
-    // qDebug() << "groupSelected: added group to scene, group type:" << group->type();
-    
-    // 清除之前的选择，并选中新的组合
-    m_scene->clearSelection();
-    group->setSelected(true);
-    // qDebug() << "groupSelected: group selected, group isSelected:" << group->isSelected();
-    
-    // 标记场景已修改
-    m_scene->setModified(true);
-    
-    m_statusLabel->setText(QString("已组合 %1 个项目").arg(shapesToGroup.size()));
+    // 更新状态标签
+    m_statusLabel->setText(QString("已组合 %1 个项目").arg(selected.size()));
 }
 
 void MainWindow::ungroupSelected()
@@ -2038,76 +1972,33 @@ void MainWindow::ungroupSelected()
     if (!m_scene) return;
     
     QList<QGraphicsItem *> selected = m_scene->selectedItems();
-    // qDebug() << "ungroupSelected: selected items count:" << selected.size();
     
     if (selected.isEmpty()) {
         m_statusLabel->setText("没有选中的项目");
         return;
     }
     
-    int ungroupedCount = 0;
-    
-    // 创建一个临时列表来存储要取消组合的组
-    QList<DrawingGroup*> groupsToUngroup;
+    // 计算要取消组合的数量
+    int groupCount = 0;
     for (QGraphicsItem *item : selected) {
-        // qDebug() << "ungroupSelected: checking item:" << item << "type:" << (item ? item->type() : -1);
-        // 使用类型检查而不是qgraphicsitem_cast
         if (item && item->type() == QGraphicsItem::UserType + 1) {
             DrawingShape *shape = static_cast<DrawingShape*>(item);
             if (shape && shape->shapeType() == DrawingShape::Group) {
-                DrawingGroup *group = static_cast<DrawingGroup*>(item);
-                groupsToUngroup.append(group);
-                // qDebug() << "ungroupSelected: found DrawingGroup:" << group;
+                groupCount++;
             }
         }
     }
     
-    for (DrawingGroup *group : groupsToUngroup) {
-        // 先取消选择组，避免选择层保留引用
-        group->setSelected(false);
-        
-        // 取消组合
-        QList<DrawingShape*> shapesToUngroup = group->items();
-        
-        // 将项目从组中移除并添加回场景
-        for (DrawingShape *shape : shapesToUngroup) {
-            // 🌟 修复：removeItem() 已经正确处理了坐标转换
-            group->removeItem(shape);
-            
-            // 确保子项在场景中（removeItem() 已经设置了正确的场景位置）
-            if (!shape->scene()) {
-                m_scene->addItem(shape);
-            }
-        }
-        
-        // 🌟 关键修复：在删除前强制清除所有选择，避免 Qt 内部引用已删除对象
-        m_scene->clearSelection();
-        
-        // 从场景中移除组
-        m_scene->removeItem(group);
-        
-        // 删除组对象
-        delete group;
-        
-        ungroupedCount++;
-    }
-    
-    if (ungroupedCount > 0) {
-        // 选择状态已在删除组合前清理
-        
-        // 老的选择层系统已移除，不再需要更新
-        // if (m_scene->selectionLayer()) {
-        //     m_scene->selectionLayer()->updateSelectionBounds();
-        // }
-        
-        // 确保场景选择状态更新
-        m_scene->update(); // 触发场景重绘
-        
-        m_scene->setModified(true);
-        m_statusLabel->setText(QString("已取消组合 %1 个组").arg(ungroupedCount));
-    } else {
+    if (groupCount == 0) {
         m_statusLabel->setText("没有选中的组合项目");
+        return;
     }
+    
+    // 使用场景的取消组合方法，这会创建撤销命令
+    m_scene->ungroupSelectedItems();
+    
+    // 更新状态标签
+    m_statusLabel->setText(QString("已取消组合 %1 个组").arg(groupCount));
 }
 
 void MainWindow::showGridSettings()

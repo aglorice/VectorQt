@@ -182,19 +182,19 @@ void DrawingGroup::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
  
     // 🌟 调用QGraphicsItem的基类方法，确保拖动功能正常工作
-    QGraphicsItem::mousePressEvent(event);
+    DrawingShape::mousePressEvent(event);
 }
 
 void DrawingGroup::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
     // 调用QGraphicsItem的基类方法
-    QGraphicsItem::mouseMoveEvent(event);
+    DrawingShape::mouseMoveEvent(event);
 }
 
 void DrawingGroup::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
     // 调用QGraphicsItem的基类方法
-    QGraphicsItem::mouseReleaseEvent(event);
+    DrawingShape::mouseReleaseEvent(event);
 }
 
 void DrawingGroup::applyTransform(const QTransform &transform, const QPointF &anchor)
@@ -258,7 +258,7 @@ void DrawingGroup::applyTransform(const QTransform &transform, const QPointF &an
     // 对所有子对象应用统一的变换
     for (DrawingShape *item : validItems)
     {
-        // 将场景坐标系的锚点转换为子对象的本地坐标系
+        // 将父对象坐标系的锚点转换为子对象的本地坐标系
         QPointF localAnchor = item->mapFromParent(transformOriginPoint());
 
         // 构造相对于锚点的变换矩阵
