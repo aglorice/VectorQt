@@ -65,9 +65,10 @@ public:
     ~DrawingShape();
     
     // 几何变换接口 - 直接使用QTransform
-    virtual void setTransform(const QTransform &transform);
+    virtual void applyTransform(const QTransform &transform, const QPointF &anchor = QPointF());
     QTransform transform() const { return m_transform; }
     
+  
     // 锚点相关的变换方法
     void rotateAroundAnchor(double angle, const QPointF &center = QPointF());
     void scaleAroundAnchor(double sx, double sy, const QPointF &center = QPointF());

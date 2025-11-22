@@ -231,7 +231,7 @@ public:
                 qDebug() << "  Restoring shape" << i << "to pos:" << state.position << "transform:" << state.transform;
                 
                 shape->setPos(state.position);
-                shape->setTransform(state.transform);
+                shape->applyTransform(state.transform);
                 shape->setRotation(state.rotation);
                 
                 // 老的手柄系统已移除，不再需要更新手柄位置
@@ -263,7 +263,7 @@ public:
                 qDebug() << "  Applying shape" << i << "to pos:" << state.position;
                 
                 shape->setPos(state.position);
-                shape->setTransform(state.transform);
+                shape->applyTransform(state.transform);
                 shape->setRotation(state.rotation);
                 
                 // 老的手柄系统已移除，不再需要更新手柄位置

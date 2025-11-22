@@ -407,7 +407,7 @@ void PropertyPanel::onRotationChanged()
             transform.translate(center.x(), center.y());
             transform.rotate(angleDeg);
             transform.translate(-center.x(), -center.y());
-            shape->setTransform(transform);
+            shape->applyTransform(transform, center);
         } else {
             // 对于其他图形项，使用标准旋转
             item->setRotation(m_rotationSpinBox->value());

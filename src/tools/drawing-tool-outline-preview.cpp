@@ -473,6 +473,9 @@ void OutlinePreviewTransformTool::grab(TransformHandle::HandleType handleType,
     case TransformHandle::Center:
         m_scaleAnchor = m_initialBounds.center();
         break;
+    case TransformHandle::Rotate:
+        m_scaleAnchor = m_useCustomRotationCenter ? m_customRotationCenter : m_initialBounds.center();
+        break;
     default:
         m_scaleAnchor = m_initialBounds.center();
         break;
@@ -591,15 +594,14 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
         if (m_activeHandle == TransformHandle::Rotate)
         {
             // Rotation: 使用变换分量系统
-            QPointF center = m_useCustomRotationCenter ? m_customRotationCenter : m_transformOrigin;
-            qreal initialAngle = qAtan2(m_grabMousePos.y() - center.y(),
-                                        m_grabMousePos.x() - center.x());
-            qreal currentAngle = qAtan2(alignedPos.y() - center.y(),
-                                        alignedPos.x() - center.x());
+            qreal initialAngle = qAtan2(m_grabMousePos.y() - m_scaleAnchor.y(),
+                                        m_grabMousePos.x() - m_scaleAnchor.x());
+            qreal currentAngle = qAtan2(alignedPos.y() - m_scaleAnchor.y(),
+                                        alignedPos.x() - m_scaleAnchor.x());
             qreal rotation = (currentAngle - initialAngle) * 180.0 / M_PI;
 
             // 将旋转中心转换为该图形的本地坐标
-            QPointF shapeLocalAnchor = shape->mapFromScene(center);
+            QPointF shapeLocalAnchor = shape->mapFromScene(m_scaleAnchor);
 
             // 🌟 使用 Rotate 变换分量
             individualTransform = Rotate{rotation, shapeLocalAnchor}.toTransform();
@@ -617,7 +619,7 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
         // 应用变换：原始变换 * 该图形的个别变换
         QTransform newTransform = originalTransform * individualTransform;
 
-        shape->setTransform(newTransform);
+        shape->applyTransform(newTransform,m_scaleAnchor);
         shape->updateShape(); // 刷新图形的边界和碰撞检测
     }
 
@@ -674,7 +676,7 @@ void OutlinePreviewTransformTool::ungrab(bool apply, const QPointF &finalMousePo
                 continue; // 跳过无效的图形
 
             QTransform originalTransform = m_originalTransforms.value(shape, QTransform());
-            shape->setTransform(originalTransform);
+            shape->applyTransform(originalTransform);
         }
     }
 

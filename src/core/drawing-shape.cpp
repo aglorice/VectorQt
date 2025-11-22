@@ -83,7 +83,7 @@ DrawingShape::~DrawingShape()
     }
 }
 
-void DrawingShape::setTransform(const QTransform &transform)
+void DrawingShape::applyTransform(const QTransform &transform, const QPointF &anchor)
 {
     prepareGeometryChange();
     m_transform = transform;
@@ -97,6 +97,8 @@ void DrawingShape::setTransform(const QTransform &transform)
         // TODO: 实现Document的setModified方法
     }
 }
+
+
 
 void DrawingShape::bakeTransform(const QTransform &transform)
 {

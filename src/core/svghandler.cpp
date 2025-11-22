@@ -1016,7 +1016,7 @@ void SvgHandler::parseTransformAttribute(DrawingShape *shape, const QString &tra
     }
     
     // 应用组合变换到形状
-    shape->setTransform(currentTransform);
+    shape->applyTransform(currentTransform);
 }
 
 void SvgHandler::parseTransformAttribute(DrawingGroup *group, const QString &transformStr)
@@ -1067,7 +1067,7 @@ void SvgHandler::parseTransformAttribute(DrawingGroup *group, const QString &tra
     }
     
     // 应用组合变换到组
-    group->setTransform(combinedTransform);
+    group->applyTransform(combinedTransform);
 }
 
 QColor SvgHandler::parseColor(const QString &colorStr)
