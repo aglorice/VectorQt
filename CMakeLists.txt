@@ -28,7 +28,6 @@ set(SOURCES
     vectorflow.cpp
     # 新增的改进绘图系统
     drawing-shape.cpp
-    drawing-transform.cpp
     # 编辑把手（已移除 - 使用新的手柄系统）
     # drawing-edit-handles.cpp
     # selection-layer.cpp # 已移除 - 老的选择层系统
@@ -95,7 +94,6 @@ set(HEADERS
     graphics-adapter.h
     # 新增的改进绘图系统
     drawing-shape.h
-    drawing-transform.h
     # selection-layer.h # 已移除 - 老的选择层系统
     drawing-tool-bezier.h
     # drawing-tool-bezier-edit.h # 已移除 - 待重新实现

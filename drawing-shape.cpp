@@ -8,7 +8,6 @@
 
 #include "drawing-shape.h"
 #include "drawing-document.h"
-#include "drawing-transform.h"
 
 #include "drawingview.h"
 #include "toolbase.h"
@@ -84,7 +83,7 @@ DrawingShape::~DrawingShape()
     }
 }
 
-void DrawingShape::setTransform(const DrawingTransform &transform)
+void DrawingShape::setTransform(const QTransform &transform)
 {
     prepareGeometryChange();
     m_transform = transform;
@@ -101,11 +100,9 @@ void DrawingShape::setTransform(const DrawingTransform &transform)
 
 void DrawingShape::bakeTransform(const QTransform &transform)
 {
-    // 默认实现：将变换应用到当前的DrawingTransform中
-    DrawingTransform currentTransform = m_transform;
-    QTransform newMatrix = transform * currentTransform.transform();
-    currentTransform.setTransform(newMatrix);
-    setTransform(currentTransform);
+    // 默认实现：将变换应用到当前的QTransform中
+    QTransform newMatrix = transform * m_transform;
+    setTransform(newMatrix);
 }
 
 void DrawingShape::notifyObjectStateChanged()
@@ -119,32 +116,47 @@ void DrawingShape::notifyObjectStateChanged()
     }
 }
 
-void DrawingShape::rotateAroundAnchor(double angle, DrawingTransform::AnchorPoint anchor)
+void DrawingShape::rotateAroundAnchor(double angle, const QPointF &center)
 {
-    QPointF center = m_transform.getAnchorPoint(anchor, localBounds());
-    m_transform.rotate(angle, center);
+    QTransform newTransform = m_transform;
+    newTransform.translate(center.x(), center.y());
+    newTransform.rotate(angle);
+    newTransform.translate(-center.x(), -center.y());
+    m_transform = newTransform;
     update();
+    
+    notifyObjectStateChanged();
 }
 
-void DrawingShape::scaleAroundAnchor(double sx, double sy, DrawingTransform::AnchorPoint anchor)
+void DrawingShape::scaleAroundAnchor(double sx, double sy, const QPointF &center)
 {
-    QPointF center = m_transform.getAnchorPoint(anchor, localBounds());
-    m_transform.scale(sx, sy, center);
+    QTransform newTransform = m_transform;
+    newTransform.translate(center.x(), center.y());
+    newTransform.scale(sx, sy);
+    newTransform.translate(-center.x(), -center.y());
+    m_transform = newTransform;
     update();
+    
+    notifyObjectStateChanged();
 }
 
-void DrawingShape::shearAroundAnchor(double sh, double sv, DrawingTransform::AnchorPoint anchor)
+void DrawingShape::shearAroundAnchor(double sh, double sv, const QPointF &center)
 {
-    QPointF center = m_transform.getAnchorPoint(anchor, localBounds());
-    m_transform.shear(sh, sv, center);
+    QTransform newTransform = m_transform;
+    newTransform.translate(center.x(), center.y());
+    newTransform.shear(sh, sv);
+    newTransform.translate(-center.x(), -center.y());
+    m_transform = newTransform;
     update();
+    
+    notifyObjectStateChanged();
 }
 
 QRectF DrawingShape::boundingRect() const
 {
-    // 使用自定义的边界框计算，已经修复了镜像问题
+    // 直接使用QTransform的mapRect方法
     QRectF localBoundsRect = localBounds();
-    QRectF transformedBounds = m_transform.transformedBounds(localBoundsRect);
+    QRectF transformedBounds = m_transform.mapRect(localBoundsRect);
     return transformedBounds;
 }
 
@@ -154,7 +166,7 @@ QPainterPath DrawingShape::shape() const
     // 创建本地边界的路径
     path.addRect(localBounds());
     
-    QPainterPath transformedPath = m_transform.transform().map(path);
+    QPainterPath transformedPath = m_transform.map(path);
     
     // 确保路径有效（处理镜像情况）
     if (transformedPath.isEmpty()) {
@@ -184,7 +196,7 @@ QPainterPath DrawingShape::transformedShape() const
     // 创建本地边界的路径
     path.addRect(localBounds());
     // 应用变换并设置填充规则
-    path = m_transform.transform().map(path);
+    path = m_transform.map(path);
     path.setFillRule(Qt::WindingFill);
     return path;
 }
@@ -198,7 +210,7 @@ void DrawingShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     painter->save();
     
     // 应用变换矩阵
-    painter->setTransform(m_transform.transform(), true);
+    painter->setTransform(m_transform, true);
     
     // 绘制填充
     painter->setBrush(m_fillBrush);
@@ -385,7 +397,7 @@ QPainterPath DrawingRectangle::transformedShape() const
     }
     
     // 应用变换
-    path = m_transform.transform().map(path);
+    path = m_transform.map(path);
     
     // 设置填充规则
     path.setFillRule(Qt::WindingFill);
@@ -438,7 +450,7 @@ void DrawingRectangle::setNodePoint(int index, const QPointF &pos)
             // 将场景坐标转换为本地坐标，考虑DrawingTransform
             QPointF localPos = mapFromScene(pos);
             // 应用DrawingTransform的逆变换来获取真正的本地坐标
-            localPos = m_transform.transform().inverted().map(localPos);
+            localPos = m_transform.inverted().map(localPos);
             
             qreal distance = localPos.x() - m_rect.left();
             qreal maxRadius = qMin(m_rect.width(), m_rect.height()) / 2.0;
@@ -451,7 +463,7 @@ void DrawingRectangle::setNodePoint(int index, const QPointF &pos)
             // 将场景坐标转换为本地坐标，考虑DrawingTransform
             QPointF localPos = mapFromScene(pos);
             // 应用DrawingTransform的逆变换来获取真正的本地坐标
-            localPos = m_transform.transform().inverted().map(localPos);
+            localPos = m_transform.inverted().map(localPos);
             
             QRectF newRect = m_rect;
             newRect.setRight(localPos.x());
@@ -474,7 +486,7 @@ void DrawingRectangle::setNodePoint(int index, const QPointF &pos)
 QPointF DrawingRectangle::constrainNodePoint(int index, const QPointF &pos) const
 {
     // 获取当前的旋转角度
-    qreal rotation = m_transform.rotation();
+    qreal rotation = qAtan2(m_transform.m21(), m_transform.m11());
     qreal rotationRad = rotation * M_PI / 180.0;
     
     QPointF localPos = mapFromScene(pos);
@@ -538,7 +550,7 @@ void DrawingRectangle::paintShape(QPainter *painter)
 void DrawingRectangle::bakeTransform(const QTransform &transform)
 {
     // 先重置变换矩阵，避免重复应用
-    setTransform(DrawingTransform());
+    setTransform(QTransform());
     
     // 将变换应用到矩形的内部几何结构中
     QRectF newRect = transform.mapRect(m_rect);
@@ -589,7 +601,7 @@ QPainterPath DrawingEllipse::transformedShape() const
     path.addEllipse(m_rect);
     
     // 应用变换
-    path = m_transform.transform().map(path);
+    path = m_transform.map(path);
     
     // 设置填充规则
     path.setFillRule(Qt::WindingFill);
@@ -649,7 +661,7 @@ void DrawingEllipse::setNodePoint(int index, const QPointF &pos)
     // 将场景坐标转换为本地坐标，考虑DrawingTransform
     QPointF localPos = mapFromScene(pos);
     // 应用DrawingTransform的逆变换来获取真正的本地坐标
-    localPos = m_transform.transform().inverted().map(localPos);
+    localPos = m_transform.inverted().map(localPos);
     
     switch (index) {
         case 0: {
@@ -735,7 +747,7 @@ void DrawingEllipse::setNodePoint(int index, const QPointF &pos)
 QPointF DrawingEllipse::constrainNodePoint(int index, const QPointF &pos) const
 {
     // 获取当前的旋转角度
-    qreal rotation = m_transform.rotation();
+    qreal rotation = qAtan2(m_transform.m21(), m_transform.m11());
     qreal rotationRad = rotation * M_PI / 180.0;
     
     QPointF localPos = mapFromScene(pos);
@@ -835,7 +847,7 @@ void DrawingEllipse::paintShape(QPainter *painter)
 void DrawingEllipse::bakeTransform(const QTransform &transform)
 {
     // 先重置变换矩阵，避免重复应用
-    setTransform(DrawingTransform());
+    setTransform(QTransform());
     
     // 将变换应用到椭圆的内部几何结构中
     QRectF newRect = transform.mapRect(m_rect);
@@ -922,7 +934,7 @@ QPainterPath DrawingPath::transformedShape() const
 {
     // 直接返回路径，应用变换
     QPainterPath path = m_path;
-    path = m_transform.transform().map(path);
+    path = m_transform.map(path);
     path.setFillRule(Qt::WindingFill);
     return path;
 }
@@ -990,7 +1002,7 @@ void DrawingPath::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
             // 首先使用Qt的内置方法转换为图形本地坐标
             QPointF localPos = mapFromScene(newPos);
             // 然后应用DrawingTransform的逆变换来获取真正的本地坐标
-            localPos = m_transform.transform().inverted().map(localPos);
+            localPos = m_transform.inverted().map(localPos);
             
             m_controlPoints[m_activeControlPoint] = localPos;
             
@@ -1043,7 +1055,7 @@ int DrawingPath::findNearestControlPoint(const QPointF &scenePos) const
     
     for (int i = 0; i < m_controlPoints.size(); ++i) {
         // 首先应用DrawingTransform变换
-        QPointF transformedPoint = m_transform.transform().map(m_controlPoints[i]);
+        QPointF transformedPoint = m_transform.map(m_controlPoints[i]);
         // 然后使用Qt的内置方法将结果转换为场景坐标
         QPointF controlScenePos = mapToScene(transformedPoint);
         
@@ -1577,7 +1589,7 @@ QPainterPath DrawingPolyline::transformedShape() const
     }
     
     // 应用变换
-    path = m_transform.transform().map(path);
+    path = m_transform.map(path);
     path.setFillRule(Qt::WindingFill);
     return path;
 }
@@ -1643,7 +1655,7 @@ void DrawingPolyline::setNodePoint(int index, const QPointF &pos)
             // 将场景坐标转换为图形本地坐标
             QPointF localPos = mapFromScene(pos);
             // 应用变换的逆变换
-            localPos = transform().transform().inverted().map(localPos);
+            localPos = transform().inverted().map(localPos);
             setPoint(index, localPos);
             return;
         }
@@ -1808,7 +1820,7 @@ QPainterPath DrawingPolygon::transformedShape() const
     // 创建多边形路径
     QPainterPath path = shape();
     // 应用变换
-    path = m_transform.transform().map(path);
+    path = m_transform.map(path);
     path.setFillRule(Qt::WindingFill);
     return path;
 }
@@ -1874,7 +1886,7 @@ void DrawingPolygon::setNodePoint(int index, const QPointF &pos)
             // 将场景坐标转换为图形本地坐标
             QPointF localPos = mapFromScene(pos);
             // 应用变换的逆变换
-            localPos = transform().transform().inverted().map(localPos);
+            localPos = transform().inverted().map(localPos);
             setPoint(index, localPos);
             return;
         }

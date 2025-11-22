@@ -1,20 +1,13 @@
 #include "drawing-tool-outline-preview.h"
-#include "drawingscene.h"
 #include "drawingview.h"
-#include "drawing-document.h"
-#include "drawing-canvas.h"
-#include "drawing-shape.h"
-#include "drawing-layer.h"
-// #include "selection-layer.h" // 已移除 - 老的选择层系统
-#include "drawing-transform.h"
-#include "handle-item.h"
-#include "transform-handle.h"
-#include <QMouseEvent>
-#include <QKeyEvent>
-#include <QPainterPath>
-#include <QtMath>
+#include <QGraphicsScene>
+#include <QGraphicsItem>
+#include <QGraphicsSceneMouseEvent>
+#include <QGraphicsSceneHoverEvent>
 #include <QTimer>
-#include <QDebug>
+#include "drawing-shape.h"
+#include "drawingscene.h"
+#include "transform-handle.h"
 
 namespace
 {
@@ -437,7 +430,7 @@ void OutlinePreviewTransformTool::grab(TransformHandle::HandleType handleType,
         if (shape)
         {
             m_selectedShapes.append(shape);
-            m_originalTransforms[shape] = shape->transform().transform();
+            m_originalTransforms[shape] = shape->transform();
         }
     }
 
@@ -625,22 +618,8 @@ void OutlinePreviewTransformTool::transform(const QPointF &mousePos, Qt::Keyboar
 
         // 应用变换：原始变换 * 该图形的个别变换
         QTransform newTransform = originalTransform * individualTransform;
-
-        DrawingTransform drawingTransform;
         
-        // 🌟 设置场景锚点和变换类型
-        if (m_activeHandle == TransformHandle::Rotate) {
-            QPointF center = m_useCustomRotationCenter ? m_customRotationCenter : m_transformOrigin;
-            drawingTransform.setAnchor(center);
-            drawingTransform.setTransformType(DrawingTransform::TransformType::Rotation);
-        } else {
-            // 缩放操作使用scaleAnchor
-            drawingTransform.setAnchor(m_scaleAnchor);
-            drawingTransform.setTransformType(DrawingTransform::TransformType::Scale);
-        }
-        
-        drawingTransform.setTransform(newTransform);
-        shape->setTransform(drawingTransform);
+        shape->setTransform(newTransform);
         shape->updateShape(); // 刷新图形的边界和碰撞检测
     }
 
@@ -698,9 +677,7 @@ void OutlinePreviewTransformTool::ungrab(bool apply, const QPointF &finalMousePo
                 continue; // 跳过无效的图形
 
             QTransform originalTransform = m_originalTransforms.value(shape, QTransform());
-            DrawingTransform drawingTransform;
-            drawingTransform.setTransform(originalTransform);
-            shape->setTransform(drawingTransform);
+            shape->setTransform(originalTransform);
         }
     }
 

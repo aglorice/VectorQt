@@ -211,7 +211,7 @@ public:
             if (qAbs(oldState.position.x() - newState.position.x()) > 0.001 ||
                 qAbs(oldState.position.y() - newState.position.y()) > 0.001 ||
                 qAbs(oldState.rotation - newState.rotation) > 0.001 ||
-                oldState.transform.transform() != newState.transform.transform()) {
+                oldState.transform != newState.transform) {
                 return true;
             }
         }
@@ -228,7 +228,7 @@ public:
             // 检查图形是否仍然有效且在正确的场景中
             if (shape && shape->scene() == m_scene) {
                 const TransformState &state = m_oldStates[i];
-                qDebug() << "  Restoring shape" << i << "to pos:" << state.position << "transform:" << state.transform.transform();
+                qDebug() << "  Restoring shape" << i << "to pos:" << state.position << "transform:" << state.transform;
                 
                 shape->setPos(state.position);
                 shape->setTransform(state.transform);

@@ -42,7 +42,7 @@ public:
     QPainterPath shape() const override;
     
     // 🌟 重写setTransform方法，确保变换传播到子项
-    void setTransform(const DrawingTransform &transform) override;
+    void setTransform(const QTransform &transform) override;
     
     // 🌟 添加专门的变换方法（参考control-frame）
     void applyScale(const QPointF &anchor, qreal sx, qreal sy);

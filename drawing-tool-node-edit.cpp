@@ -263,7 +263,7 @@ bool DrawingNodeEditTool::mouseMoveEvent(QMouseEvent *event, const QPointF &scen
         }
 
         // 获取图形的变换
-        DrawingTransform transform = m_selectedShape->transform();
+        QTransform transform = m_selectedShape->transform();
 
         // 直接传递场景坐标给setNodePoint，让图形自己处理坐标转换
         m_selectedShape->setNodePoint(handleInfo.nodeIndex, alignedScenePos);
@@ -334,8 +334,8 @@ bool DrawingNodeEditTool::mouseReleaseEvent(QMouseEvent *event, const QPointF &s
                         if (rect)
                         {
                             QPointF localPos = m_selectedShape->mapFromScene(currentPos);
-                            DrawingTransform transform = m_selectedShape->transform();
-                            localPos = transform.transform().inverted().map(localPos);
+                            QTransform transform = m_selectedShape->transform();
+                            localPos = transform.inverted().map(localPos);
 
                             qreal distance = localPos.x() - rect->rectangle().left();
                             qreal maxRadius = qMin(rect->rectangle().width(), rect->rectangle().height()) / 2.0;
@@ -689,7 +689,7 @@ void DrawingNodeEditTool::updateOtherNodeHandles(int draggedIndex, const QPointF
 
     // 获取图形的节点点和变换
     QVector<QPointF> nodePoints = m_selectedShape->getNodePoints();
-    DrawingTransform transform = m_selectedShape->transform();
+    QTransform transform = m_selectedShape->transform();
 
     // 使用手柄管理器更新所有手柄位置
     if (m_handleManager) {

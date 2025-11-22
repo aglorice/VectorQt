@@ -1,6 +1,5 @@
 #include "drawing-group.h"
 #include "drawing-shape.h"
-#include "drawing-transform.h"
 
 #include "drawingscene.h"
 // #include "selection-layer.h" // 已移除 - 老的选择层系统
@@ -39,7 +38,7 @@ void DrawingGroup::addItem(DrawingShape *item)
     }
     
     // 🌟 保存子项的初始变换（参考control-frame）
-    m_initialTransforms[item] = item->transform().transform();
+    m_initialTransforms[item] = item->transform();
     
     // 在设置父子关系之前，将子项的位置转换为相对于组的本地坐标
     // 获取子项在场景中的当前位置
@@ -54,7 +53,7 @@ void DrawingGroup::addItem(DrawingShape *item)
     
     // 🌟 关键修复：重置子项的变换，避免二次变换
     // 子项的位置已经转换为本地坐标，所以变换应该是单位矩阵
-    item->setTransform(DrawingTransform());
+    item->setTransform(QTransform());
     
     // 保存到列表
     m_items.append(item);
@@ -76,7 +75,7 @@ void DrawingGroup::removeItem(DrawingShape *item)
     
     // 🌟 解除父子关系前，恢复子项的原始变换
     if (m_initialTransforms.contains(item)) {
-        item->setTransform(DrawingTransform(m_initialTransforms[item]));
+        item->setTransform(m_initialTransforms[item]);
         m_initialTransforms.remove(item);
     }
     
@@ -107,7 +106,7 @@ QList<DrawingShape*> DrawingGroup::ungroup()
         if (item) {
             // 🌟 解除父子关系前，恢复子项的原始变换
             if (m_initialTransforms.contains(item)) {
-                item->setTransform(DrawingTransform(m_initialTransforms[item]));
+                item->setTransform(m_initialTransforms[item]);
             }
             
             // 解除父子关系
@@ -211,11 +210,11 @@ void DrawingGroup::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
     QGraphicsItem::mouseReleaseEvent(event);
 }
 
-void DrawingGroup::setTransform(const DrawingTransform &transform)
+void DrawingGroup::setTransform(const QTransform &transform)
 {
     // 🌟 简化变换逻辑，直接调用基类方法
     DrawingShape::setTransform(transform);
-    QGraphicsItem::setTransform(transform.transform());
+    QGraphicsItem::setTransform(transform);
 }
 void DrawingGroup::applyScale(const QPointF &anchor, qreal sx, qreal sy)
 {
@@ -228,10 +227,12 @@ void DrawingGroup::applyScale(const QPointF &anchor, qreal sx, qreal sy)
     QPointF anchorLocal = mapFromScene(anchor);
     
     // 创建新的变换
-    DrawingTransform newTransform = m_transform;
+    QTransform newTransform = m_transform;
     
     // 应用缩放
-    newTransform.scale(sx, sy, anchorLocal);
+    newTransform.translate(anchorLocal.x(), anchorLocal.y());
+    newTransform.scale(sx, sy);
+    newTransform.translate(-anchorLocal.x(), -anchorLocal.y());
     
     // 设置新变换
     setTransform(newTransform);
@@ -243,7 +244,7 @@ void DrawingGroup::grabTransform()
     m_currentTransforms.clear();
     for (DrawingShape *item : m_items) {
         if (item && item->parentItem() == this) {
-            m_currentTransforms[item] = item->transform().transform();
+            m_currentTransforms[item] = item->transform();
         }
     }
     
@@ -278,85 +279,50 @@ void DrawingGroup::applyTransformWithHandle(int handleType, const QPointF &initi
     
     // 🌟 基于手柄类型的精确变换处理（参考control-frame逻辑）
     
-    // 1. 根据手柄类型确定锚点
-    DrawingTransform::AnchorPoint anchor = DrawingTransform::Center;
-    
-    // 手柄类型映射到锚点
-    // 关键：拖动手柄时，固定对角的锚点
-    switch (handleType) {
-        case 1: // TopLeft
-            anchor = DrawingTransform::BottomRight;
-            break;
-        case 2: // TopCenter
-            anchor = DrawingTransform::BottomCenter;
-            break;
-        case 3: // TopRight
-            anchor = DrawingTransform::BottomLeft;
-            break;
-        case 4: // CenterLeft
-            anchor = DrawingTransform::CenterRight;
-            break;
-        case 5: // CenterRight
-            anchor = DrawingTransform::CenterLeft;
-            break;
-        case 6: // BottomLeft
-            anchor = DrawingTransform::TopRight;
-            break;
-        case 7: // BottomCenter
-            anchor = DrawingTransform::TopCenter;
-            break;
-        case 8: // BottomRight
-            anchor = DrawingTransform::TopLeft;
-            break;
-        default:
-            anchor = DrawingTransform::Center;
-            break;
-    }
-    
-    // 🌟 2. 使用保存的原始边界框（在grabTransform时保存的）
+    // 🌟 1. 使用保存的原始边界框（在grabTransform时保存的）
     QRectF totalBounds = m_currentBounds;
     
     if (totalBounds.isEmpty()) {
         return;
     }
     
-    // 🌟 3. 获取固定锚点位置（关键：基于原始状态的边界框）
-    QPointF fixedAnchor;
-    switch (anchor) {
-        case DrawingTransform::TopLeft:
-            fixedAnchor = totalBounds.topLeft();
+    // 🌟 2. 根据手柄类型确定锚点位置
+    QPointF anchorPoint = totalBounds.center();
+    
+    // 手柄类型映射到锚点
+    // 关键：拖动手柄时，固定对角的锚点
+    switch (handleType) {
+        case 1: // TopLeft
+            anchorPoint = totalBounds.bottomRight();
             break;
-        case DrawingTransform::TopCenter:
-            fixedAnchor = QPointF(totalBounds.center().x(), totalBounds.top());
+        case 2: // TopCenter
+            anchorPoint = QPointF(totalBounds.center().x(), totalBounds.bottom());
             break;
-        case DrawingTransform::TopRight:
-            fixedAnchor = totalBounds.topRight();
+        case 3: // TopRight
+            anchorPoint = totalBounds.bottomLeft();
             break;
-        case DrawingTransform::CenterLeft:
-            fixedAnchor = QPointF(totalBounds.left(), totalBounds.center().y());
+        case 4: // CenterLeft
+            anchorPoint = QPointF(totalBounds.right(), totalBounds.center().y());
             break;
-        case DrawingTransform::Center:
-            fixedAnchor = totalBounds.center();
+        case 5: // CenterRight
+            anchorPoint = QPointF(totalBounds.left(), totalBounds.center().y());
             break;
-        case DrawingTransform::CenterRight:
-            fixedAnchor = QPointF(totalBounds.right(), totalBounds.center().y());
+        case 6: // BottomLeft
+            anchorPoint = totalBounds.topRight();
             break;
-        case DrawingTransform::BottomLeft:
-            fixedAnchor = totalBounds.bottomLeft();
+        case 7: // BottomCenter
+            anchorPoint = QPointF(totalBounds.center().x(), totalBounds.top());
             break;
-        case DrawingTransform::BottomCenter:
-            fixedAnchor = QPointF(totalBounds.center().x(), totalBounds.bottom());
-            break;
-        case DrawingTransform::BottomRight:
-            fixedAnchor = totalBounds.bottomRight();
+        case 8: // BottomRight
+            anchorPoint = totalBounds.topLeft();
             break;
         default:
-            fixedAnchor = totalBounds.center();
+            anchorPoint = totalBounds.center();
             break;
     }
     
     // 将固定锚点转换为场景坐标
-    QPointF anchorScenePos = mapToScene(fixedAnchor);
+    QPointF anchorScenePos = mapToScene(anchorPoint);
     
     // 🌟 4. 计算相对于锚点的向量（关键步骤）
     QPointF initialVec = initialHandlePos - anchorScenePos;
@@ -400,10 +366,12 @@ void DrawingGroup::applyTransformWithHandle(int handleType, const QPointF &initi
     QPointF anchorLocal = mapFromScene(anchorScenePos);
     
     // 创建新的变换
-    DrawingTransform newTransform = m_transform;
+    QTransform newTransform = m_transform;
     
     // 应用缩放
-    newTransform.scale(sx, sy, anchorLocal);
+    newTransform.translate(anchorLocal.x(), anchorLocal.y());
+    newTransform.scale(sx, sy);
+    newTransform.translate(-anchorLocal.x(), -anchorLocal.y());
     
     // 设置新变换
     setTransform(newTransform);
@@ -452,13 +420,13 @@ void DrawingGroup::applyRotationWithHandle(const QPointF &center, double angleDe
     QPointF localCenter = mapFromScene(lockCenter);
     
     // 对组合对象本身应用旋转变换
-    QTransform groupTransform = m_transform.transform();
+    QTransform groupTransform = m_transform;
     QTransform rotationTransform;
     rotationTransform.translate(localCenter.x(), localCenter.y());
     rotationTransform.rotateRadians(angleDelta);
     rotationTransform.translate(-localCenter.x(), -localCenter.y());
     
-    setTransform(DrawingTransform(rotationTransform * groupTransform));
+    setTransform(rotationTransform * groupTransform);
     
     // 更新几何
     prepareGeometryChange();
@@ -529,13 +497,13 @@ void DrawingGroup::applyScaleWithHandle(int handleType, const QPointF &initialHa
     sy = qBound(0.01, sy, 100.0);
     
     // 将缩放应用到组合对象本身，而不是分别应用到每个子项
-    QTransform groupTransform = m_transform.transform();
+    QTransform groupTransform = m_transform;
     QTransform scaleTransform;
     scaleTransform.translate(center.x(), center.y());
     scaleTransform.scale(sx, sy);
     scaleTransform.translate(-center.x(), -center.y());
     
-    setTransform(DrawingTransform(scaleTransform * groupTransform));
+    setTransform(scaleTransform * groupTransform);
     
     // 更新几何
     prepareGeometryChange();
@@ -565,7 +533,7 @@ void DrawingGroup::applyRotation(qreal angle, const QPointF &center)
             
             // 应用到初始变换上
             QTransform combinedTransform = R * m_initialTransforms[item];
-            item->setTransform(DrawingTransform(combinedTransform));
+            item->setTransform(combinedTransform);
         }
     }
     

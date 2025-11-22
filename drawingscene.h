@@ -3,7 +3,7 @@
 
 #include <QGraphicsScene>
 #include <QUndoStack>
-#include "drawing-transform.h"
+#include "drawing-group.h"
 
 class DrawingShape;
 class DrawingGroup;
@@ -19,7 +19,7 @@ public:
     // TransformState 结构体需要在 TransformCommand 类之前定义
     struct TransformState {
         QPointF position;
-        DrawingTransform transform;
+        QTransform transform;
         qreal rotation;
     };
     

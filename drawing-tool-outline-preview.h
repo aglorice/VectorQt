@@ -3,7 +3,12 @@
 
 #include "toolbase.h"
 #include "handle-item.h"
-#include "drawing-transform.h"
+#include <QGraphicsScene>
+#include <QGraphicsItem>
+#include <QGraphicsSceneMouseEvent>
+#include <QGraphicsSceneHoverEvent>
+#include <QTimer>
+#include "drawing-shape.h"
 #include "drawingscene.h"
 #include "handle-types.h"
 #include <QPointF>

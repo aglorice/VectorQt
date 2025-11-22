@@ -972,7 +972,7 @@ void SvgHandler::parseTransformAttribute(DrawingShape *shape, const QString &tra
     QRegularExpression regex("(\\S+)\\s*\\(\\s*([^)]+)\\s*\\)");
     QRegularExpressionMatchIterator iter = regex.globalMatch(transformStr);
     
-    DrawingTransform currentTransform = shape->transform();
+    QTransform currentTransform = shape->transform();
     
     while (iter.hasNext()) {
         QRegularExpressionMatch match = iter.next();
@@ -984,7 +984,7 @@ void SvgHandler::parseTransformAttribute(DrawingShape *shape, const QString &tra
         if (func == "translate" && params.size() >= 2) {
             qreal tx = params[0].toDouble();
             qreal ty = params.size() > 1 ? params[1].toDouble() : 0.0;
-            currentTransform.translate(QPointF(tx, ty));
+            currentTransform.translate(tx, ty);
         } else if (func == "rotate" && params.size() >= 1) {
             qreal angle = params[0].toDouble();
             qreal cx = 0, cy = 0;
@@ -992,12 +992,14 @@ void SvgHandler::parseTransformAttribute(DrawingShape *shape, const QString &tra
                 cx = params[1].toDouble();
                 cy = params[2].toDouble();
             }
-            currentTransform.rotate(angle, QPointF(cx, cy));
+            currentTransform.translate(cx, cy);
+            currentTransform.rotate(angle);
+            currentTransform.translate(-cx, -cy);
         } else if (func == "scale" && params.size() >= 1) {
             qreal sx = params[0].toDouble();
             qreal sy = params.size() > 1 ? params[1].toDouble() : sx;
             // 缩放通常以原点为中心，除非特别指定
-            currentTransform.scale(sx, sy, QPointF(0, 0));
+            currentTransform.scale(sx, sy);
         } else if (func == "matrix" && params.size() >= 6) {
             // 解析6参数仿射变换矩阵
             qreal a = params[0].toDouble();
@@ -1008,7 +1010,7 @@ void SvgHandler::parseTransformAttribute(DrawingShape *shape, const QString &tra
             qreal f = params[5].toDouble();
             
             QTransform qtTransform(a, b, c, d, e, f);
-            currentTransform.setTransform(qtTransform);
+            currentTransform = qtTransform;
         }
     }
     
@@ -1022,7 +1024,7 @@ void SvgHandler::parseTransformAttribute(DrawingGroup *group, const QString &tra
     QRegularExpression regex("(\\S+)\\s*\\(\\s*([^)]+)\\s*\\)");
     QRegularExpressionMatchIterator iter = regex.globalMatch(transformStr);
     
-    DrawingTransform combinedTransform;
+    QTransform combinedTransform;
     
     while (iter.hasNext()) {
         QRegularExpressionMatch match = iter.next();
@@ -1034,7 +1036,7 @@ void SvgHandler::parseTransformAttribute(DrawingGroup *group, const QString &tra
         if (func == "translate" && params.size() >= 2) {
             qreal tx = params[0].toDouble();
             qreal ty = params.size() > 1 ? params[1].toDouble() : 0.0;
-            combinedTransform.translate(QPointF(tx, ty));
+            combinedTransform.translate(tx, ty);
         } else if (func == "rotate" && params.size() >= 1) {
             qreal angle = params[0].toDouble();
             qreal cx = 0, cy = 0;
@@ -1042,7 +1044,9 @@ void SvgHandler::parseTransformAttribute(DrawingGroup *group, const QString &tra
                 cx = params[1].toDouble();
                 cy = params[2].toDouble();
             }
-            combinedTransform.rotate(angle, QPointF(cx, cy));
+            combinedTransform.translate(cx, cy);
+            combinedTransform.rotate(angle);
+            combinedTransform.translate(-cx, -cy);
         } else if (func == "scale" && params.size() >= 1) {
             qreal sx = params[0].toDouble();
             qreal sy = params.size() > 1 ? params[1].toDouble() : sx;
@@ -1057,7 +1061,7 @@ void SvgHandler::parseTransformAttribute(DrawingGroup *group, const QString &tra
             qreal f = params[5].toDouble();
             
             QTransform qtTransform(a, b, c, d, e, f);
-            combinedTransform.setTransform(qtTransform);
+            combinedTransform = qtTransform;
         }
     }
     
@@ -1322,7 +1326,7 @@ QDomElement SvgHandler::exportPathToSvgElement(QDomDocument &doc, DrawingPath *p
     pathElement.setAttribute("d", pathData);
     
     // 导出变换
-    QTransform transform = path->transform().transform();
+    QTransform transform = path->transform();
     if (!transform.isIdentity()) {
         pathElement.setAttribute("transform", transformToString(transform));
     }
@@ -1392,7 +1396,7 @@ QDomElement SvgHandler::exportRectangleToSvgElement(QDomDocument &doc, DrawingRe
     }
     
     // 导出变换
-    QTransform transform = rect->transform().transform();
+    QTransform transform = rect->transform();
     if (!transform.isIdentity()) {
         rectElement.setAttribute("transform", transformToString(transform));
     }
@@ -1482,7 +1486,7 @@ QDomElement SvgHandler::exportEllipseToSvgElement(QDomDocument &doc, DrawingElli
     }
     
     // 导出变换
-    QTransform transform = ellipse->transform().transform();
+    QTransform transform = ellipse->transform();
     if (!transform.isIdentity()) {
         ellipseElement.setAttribute("transform", transformToString(transform));
     }
@@ -2485,7 +2489,7 @@ QDomElement SvgHandler::exportTextToSvgElement(QDomDocument &doc, DrawingText *t
     }
     
     // 导出变换
-    QTransform transform = text->transform().transform();
+    QTransform transform = text->transform();
     if (!transform.isIdentity()) {
         textElement.setAttribute("transform", transformToString(transform));
     }

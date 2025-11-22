@@ -12,7 +12,6 @@
 #include <QFont>
 #include <QUndoCommand>
 #include <memory>
-#include "drawing-transform.h"
 
 class DrawingDocument;
 
@@ -65,14 +64,14 @@ public:
     DrawingShape(ShapeType type, QGraphicsItem *parent = nullptr);
     ~DrawingShape();
     
-    // 几何变换接口 - 使用改进的变换系统
-    virtual void setTransform(const DrawingTransform &transform);
-    DrawingTransform transform() const { return m_transform; }
+    // 几何变换接口 - 直接使用QTransform
+    virtual void setTransform(const QTransform &transform);
+    QTransform transform() const { return m_transform; }
     
     // 锚点相关的变换方法
-    void rotateAroundAnchor(double angle, DrawingTransform::AnchorPoint anchor = DrawingTransform::Center);
-    void scaleAroundAnchor(double sx, double sy, DrawingTransform::AnchorPoint anchor = DrawingTransform::Center);
-    void shearAroundAnchor(double sh, double sv, DrawingTransform::AnchorPoint anchor = DrawingTransform::Center);
+    void rotateAroundAnchor(double angle, const QPointF &center = QPointF());
+    void scaleAroundAnchor(double sx, double sy, const QPointF &center = QPointF());
+    void shearAroundAnchor(double sh, double sv, const QPointF &center = QPointF());
     
     // 获取本地边界框（未变换）
     virtual QRectF localBounds() const = 0;
@@ -154,7 +153,7 @@ protected:
     virtual void paintShape(QPainter *painter) = 0;
     
     ShapeType m_type;
-    DrawingTransform m_transform;  // 改进的变换系统
+    QTransform m_transform;  // 直接使用Qt的变换系统
     QBrush m_fillBrush;
     QPen m_strokePen;
     DrawingDocument *m_document = nullptr;

@@ -1,7 +1,6 @@
 #include "node-handle-manager.h"
 #include "drawingscene.h"
 #include "drawing-shape.h"
-#include "drawing-transform.h"
 #include <QDebug>
 
 // 静态常量定义
@@ -392,8 +391,8 @@ QPointF NodeHandleManager::calculateHandlePosition(const QPointF &localPoint, Dr
     if (!shape) return localPoint;
     
     // 应用图形变换
-    DrawingTransform transform = shape->transform();
-    QPointF transformedPoint = transform.transform().map(localPoint);
+    QTransform transform = shape->transform();
+    QPointF transformedPoint = transform.map(localPoint);
     
     // 转换为场景坐标
     return shape->mapToScene(transformedPoint);

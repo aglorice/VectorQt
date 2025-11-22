@@ -309,7 +309,9 @@ void PropertyPanel::updateValues()
         
         // 获取旋转角度
         if (shape) {
-            qreal rotationRad = shape->transform().rotation();
+            // 从QTransform中提取旋转角度
+            QTransform transform = shape->transform();
+            qreal rotationRad = qAtan2(transform.m21(), transform.m11());
             qreal rotationDeg = rotationRad * 180.0 / M_PI;
             m_rotationSpinBox->setValue(rotationDeg);
         } else {
@@ -398,12 +400,13 @@ void PropertyPanel::onRotationChanged()
         DrawingShape *shape = qgraphicsitem_cast<DrawingShape*>(item);
         
         if (shape) {
-            // 对于DrawingShape，使用DrawingTransform设置旋转
-            DrawingTransform transform = shape->transform();
+            // 对于DrawingShape，使用QTransform设置旋转
+            QTransform transform = shape->transform();
             QPointF center = shape->boundingRect().center();
             qreal angleDeg = m_rotationSpinBox->value();
-            qreal angleRad = angleDeg * M_PI / 180.0;
-            transform.rotate(angleRad, center);
+            transform.translate(center.x(), center.y());
+            transform.rotate(angleDeg);
+            transform.translate(-center.x(), -center.y());
             shape->setTransform(transform);
         } else {
             // 对于其他图形项，使用标准旋转
