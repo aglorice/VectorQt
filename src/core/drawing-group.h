@@ -42,6 +42,8 @@ public:
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
 
+    void setTransform(const QTransform &transform) override;
+
 protected:
     // 变换通知
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;

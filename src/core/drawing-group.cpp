@@ -102,12 +102,32 @@ QList<DrawingShape*> DrawingGroup::ungroup()
 {
     QList<DrawingShape*> result;
     
-    // 🌟 批量解除父子关系，Qt 自动处理所有坐标转换
+    qDebug() << "Ungrouping" << m_items.size() << "items";
+    
+    // 🌟 批量解除父子关系，正确处理坐标转换
     for (DrawingShape *item : m_items) {
         if (item) {
+            // 保存对象当前的本地位置
+            QPointF itemLocalPos = item->pos();
+            
+            // 计算对象应该恢复到的场景位置
+            QPointF itemScenePos = this->mapToScene(itemLocalPos);
+            
+            qDebug() << "Ungroup item - local:" << itemLocalPos << "scene:" << itemScenePos;
+            
+            // 解除父子关系
             item->setParentItem(nullptr);
+            
+            // 恢复对象的场景位置
+            item->setPos(itemScenePos);
+            
+            // 恢复单位变换
+            item->setTransform(QTransform());
+            
+            // 恢复子对象的能力
             item->setFlag(QGraphicsItem::ItemIsMovable, true);
             item->setFlag(QGraphicsItem::ItemIsSelectable, true);
+            
             result.append(item);
         }
     }
@@ -128,7 +148,7 @@ QRectF DrawingGroup::boundingRect() const
     QRectF bounds = childrenBoundingRect();
     
     // 添加调试信息
-    qDebug() << "Group boundingRect:" << bounds << "item count:" << m_items.size();
+    //qDebug() << "Group boundingRect:" << bounds << "item count:" << m_items.size();
     
     if (bounds.isEmpty()) {
         // 如果没有子对象，返回最小边界
@@ -198,14 +218,24 @@ void DrawingGroup::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 }
 
 QVariant DrawingGroup::itemChange(QGraphicsItem::GraphicsItemChange change, const QVariant &value)
-{
-    // 🌟 简化的变化处理，Qt 自动处理变换传播
-    if (change == ItemTransformHasChanged || change == ItemPositionHasChanged) {
-        // 变换发生变化时，Qt 会自动更新所有子对象
-        // 我们只需要通知视图更新
-        prepareGeometryChange();
-        update();
-    }
+ {
+//     // 🌟 简化的变化处理，Qt 自动处理变换传播
+//     if (change == ItemTransformHasChanged || change == ItemPositionHasChanged) {
+//         // 变换发生变化时，Qt 会自动更新所有子对象
+//         // 我们只需要通知视图更新
+//         prepareGeometryChange();
+//         update();
+        
+//         // 🌟 关键修复：通知场景对象状态变化，让手柄实时更新
+//         notifyObjectStateChanged();
+//     }
     
-    return QGraphicsItem::itemChange(change, value);
+    return DrawingShape::itemChange(change, value);
+}
+
+void DrawingGroup::setTransform(const QTransform &transform)
+{
+    // 🌟 重写setTransform以确保变换通知正确传播
+    DrawingShape::setTransform(transform);
+    QGraphicsItem::setTransform(transform);
 }

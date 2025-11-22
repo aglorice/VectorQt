@@ -2071,18 +2071,10 @@ void MainWindow::ungroupSelected()
         
         // 将项目从组中移除并添加回场景
         for (DrawingShape *shape : shapesToUngroup) {
-            // 保存组合的位置
-            QPointF groupPos = group->pos();
-            // 保存子项的相对位置
-            QPointF childPos = shape->pos();
-            
+            // 🌟 修复：removeItem() 已经正确处理了坐标转换
             group->removeItem(shape);
             
-            // 计算子项的绝对位置（组合位置 + 相对位置）
-            QPointF absolutePos = groupPos + childPos;
-            shape->setPos(absolutePos);
-            
-            // 确保子项在场景中
+            // 确保子项在场景中（removeItem() 已经设置了正确的场景位置）
             if (!shape->scene()) {
                 m_scene->addItem(shape);
             }
