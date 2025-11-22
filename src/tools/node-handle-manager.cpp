@@ -1,4 +1,4 @@
-#include "../transforms/node-handle-manager.h"
+#include "../tools/node-handle-manager.h"
 #include "../ui/drawingscene.h"
 #include "../core/drawing-shape.h"
 #include <QDebug>

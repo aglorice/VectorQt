@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QPointF>
 #include <QGraphicsItem>
-#include "../core/cursor-manager.h"
+#include "../ui/cursor-manager.h"
 
 // Qt命名空间中的前置声明
 QT_BEGIN_NAMESPACE

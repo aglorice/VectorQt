@@ -2,8 +2,8 @@
 #define DRAWING_TOOL_OUTLINE_PREVIEW_H
 
 #include "../core/toolbase.h"
-#include "../transforms/handle-item.h"
-#include "../transforms/transform-components.h"
+#include "../tools/handle-item.h"
+#include "../tools/transform-components.h"
 #include <QGraphicsScene>
 #include <QGraphicsItem>
 #include <QGraphicsSceneMouseEvent>
@@ -11,7 +11,7 @@
 #include <QTimer>
 #include "../core/drawing-shape.h"
 #include "../ui/drawingscene.h"
-#include "../transforms/handle-types.h"
+#include "../tools/handle-types.h"
 #include <QPointF>
 #include <QRectF>
 #include <QTransform>

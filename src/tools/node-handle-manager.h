@@ -5,8 +5,8 @@
 #include <QList>
 #include <QPointF>
 #include <QRectF>
-#include "../transforms/handle-item.h"
-#include "../transforms/handle-types.h"
+#include "../tools/handle-item.h"
+#include "../tools/handle-types.h"
 #include "../core/drawing-shape.h"
 
 class DrawingScene;

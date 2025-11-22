@@ -2,7 +2,7 @@
 #define HANDLE_ICONS_H
 
 #include <QPixmap>
-#include "../transforms/handle-types.h"
+#include "../tools/handle-types.h"
 
 /**
  * @brief 手柄图标资源

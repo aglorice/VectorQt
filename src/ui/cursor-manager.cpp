@@ -1,4 +1,4 @@
-#include "../core/cursor-manager.h"
+#include "../ui/cursor-manager.h"
 #include <QWidget>
 #include <QApplication>
 #include <QHash>

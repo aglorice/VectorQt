@@ -27,15 +27,15 @@
 #include "../tools/drawing-tool-outline-preview.h"
 #include "../core/patheditor.h"
 // #include "selection-layer.h" // 已移除 - 老的选择层系统
-#include "../core/ruler.h"
-#include "../core/scrollable-toolbar.h"
+#include "../ui/ruler.h"
+#include "../ui/scrollable-toolbar.h"
 // #include "layermanager.h"  // Not implemented yet
 // #include "layerpanel.h"    // Not implemented yet
 // #include "advancedtools.h" // Not implemented yet
 #include "../core/svghandler.h"
 #include <algorithm>
 #include "../core/drawing-shape.h"
-#include "../core/colorpalette.h"
+#include "../ui/colorpalette.h"
 #include "../core/drawing-group.h"
 #include <QMenuBar>
 #include <QClipboard>

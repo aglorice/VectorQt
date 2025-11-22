@@ -1,4 +1,4 @@
-#include "../core/scrollable-toolbar.h"
+#include "../ui/scrollable-toolbar.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>

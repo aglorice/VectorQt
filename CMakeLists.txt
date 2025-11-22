@@ -34,12 +34,12 @@ set(SOURCES
     src/core/drawing-layer.cpp
     src/core/drawing-throttle.cpp
     src/core/brush-engine.cpp
-    src/core/colorpalette.cpp
-    src/core/cursor-manager.cpp
+    src/ui/colorpalette.cpp
+    src/ui/cursor-manager.cpp
     src/core/layer-manager.cpp
     src/core/patheditor.cpp
-    src/core/ruler.cpp
-    src/core/scrollable-toolbar.cpp
+    src/ui/ruler.cpp
+    src/ui/scrollable-toolbar.cpp
     src/core/svghandler.cpp
     src/core/graphics-adapter.h
     
@@ -65,12 +65,12 @@ set(SOURCES
     src/ui/tools-panel.cpp
     src/ui/page-settings-panel.cpp
     
-    # 变换系统模块
-    src/transforms/transform-handle.cpp
-    src/transforms/handle-item.cpp
-    src/transforms/handle-icons.cpp
-    src/transforms/node-handle-manager.cpp
-    src/transforms/transform-components.h
+    # 工具模块（包含变换系统）
+    src/tools/transform-handle.cpp
+    src/tools/handle-item.cpp
+    src/tools/handle-icons.cpp
+    src/tools/node-handle-manager.cpp
+    src/tools/transform-components.h
 )
 
 # 收集头文件
@@ -91,12 +91,12 @@ set(HEADERS
     src/core/drawing-layer.h
     src/core/drawing-throttle.h
     src/core/brush-engine.h
-    src/core/colorpalette.h
-    src/core/cursor-manager.h
+    src/ui/colorpalette.h
+    src/ui/cursor-manager.h
     src/core/layer-manager.h
     src/core/patheditor.h
-    src/core/ruler.h
-    src/core/scrollable-toolbar.h
+    src/ui/ruler.h
+    src/ui/scrollable-toolbar.h
     src/core/svghandler.h
     src/core/graphics-adapter.h
     
@@ -122,13 +122,13 @@ set(HEADERS
     src/ui/tools-panel.h
     src/ui/page-settings-panel.h
     
-    # 变换系统模块
-    src/transforms/transform-handle.h
-    src/transforms/handle-item.h
-    src/transforms/handle-icons.h
-    src/transforms/handle-types.h
-    src/transforms/node-handle-manager.h
-    src/transforms/transform-components.h
+    # 工具模块（包含变换系统）
+    src/tools/transform-handle.h
+    src/tools/handle-item.h
+    src/tools/handle-icons.h
+    src/tools/handle-types.h
+    src/tools/node-handle-manager.h
+    src/tools/transform-components.h
 )
 
 # 收集资源文件

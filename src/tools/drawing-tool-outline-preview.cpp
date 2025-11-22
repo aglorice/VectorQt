@@ -7,7 +7,7 @@
 #include <QTimer>
 #include "../core/drawing-shape.h"
 #include "../ui/drawingscene.h"
-#include "../transforms/transform-handle.h"
+#include "../tools/transform-handle.h"
 
 namespace
 {

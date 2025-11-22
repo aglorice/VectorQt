@@ -1,4 +1,4 @@
-#include "../core/colorpalette.h"
+#include "../ui/colorpalette.h"
 #include "../ui/drawingscene.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>

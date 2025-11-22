@@ -1,4 +1,4 @@
-#include "../transforms/transform-handle.h"
+#include "../tools/transform-handle.h"
 #include "../ui/drawingscene.h"
 #include <QGraphicsScene>
 #include <QBrush>

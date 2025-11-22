@@ -1,8 +1,8 @@
 #include "../tools/drawing-tool-node-edit.h"
 #include "../ui/drawingscene.h"
 #include "../core/drawing-shape.h"
-#include "../transforms/node-handle-manager.h"
-#include "../transforms/handle-item.h"
+#include "../tools/node-handle-manager.h"
+#include "../tools/handle-item.h"
 #include <QMouseEvent>
 #include <QGraphicsScene>
 #include <QGraphicsItem>

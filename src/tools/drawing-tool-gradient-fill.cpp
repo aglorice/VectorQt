@@ -3,7 +3,7 @@
 #include "../ui/drawingview.h"
 #include "../core/drawing-shape.h"
 #include "../ui/mainwindow.h"
-#include "../core/colorpalette.h"
+#include "../ui/colorpalette.h"
 #include <QGraphicsScene>
 #include <QMouseEvent>
 #include <QKeyEvent>

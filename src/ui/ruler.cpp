@@ -1,4 +1,4 @@
-#include "../core/ruler.h"
+#include "../ui/ruler.h"
 #include <QPainter>
 #include <QFontMetrics>
 #include <QDebug>

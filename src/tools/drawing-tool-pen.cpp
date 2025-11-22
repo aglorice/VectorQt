@@ -5,7 +5,7 @@
 #include "../core/drawing-layer.h"
 #include "../core/layer-manager.h"
 #include "../ui/mainwindow.h"
-#include "../core/colorpalette.h"
+#include "../ui/colorpalette.h"
 #include <QGraphicsScene>
 #include <QMouseEvent>
 #include <QKeyEvent>
