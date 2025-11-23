@@ -33,7 +33,7 @@ TabbedPropertyPanel::TabbedPropertyPanel(QWidget *parent)
     addPageSettingsPanel();
     
     // 连接标签切换信号
-    connect(this, &QTabWidget::currentChanged, this, &TabbedPropertyPanel::currentPanelChanged);
+    connect(this, &QTabWidget::currentChanged, this, &TabbedPropertyPanel::onCurrentPanelChanged);
 }
 
 void TabbedPropertyPanel::addPropertiesPanel()
@@ -209,5 +209,14 @@ void TabbedPropertyPanel::setView(DrawingView *view)
     // 更新页面设置面板的视图引用
     if (m_pageSettingsPanel) {
         m_pageSettingsPanel->setView(m_view);
+    }
+}
+
+void TabbedPropertyPanel::onCurrentPanelChanged(int index)
+{
+    // 当切换到图层与对象标签页时，刷新图层树
+    if (index == indexOf(m_layersPanel) && m_layersPanel) {
+        qDebug() << "TabbedPropertyPanel: Switched to layers panel, refreshing layer tree";
+        m_layersPanel->updateLayerList();
     }
 }

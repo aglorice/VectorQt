@@ -53,6 +53,8 @@ void LayerPanel::setScene(DrawingScene *scene)
 
 void LayerPanel::setLayerManager(LayerManager *layerManager)
 {
+    qDebug() << "LayerPanel::setLayerManager called with layerManager:" << layerManager;
+    
     if (m_layerManager == layerManager) {
         return;
     }
@@ -77,9 +79,14 @@ void LayerPanel::setLayerManager(LayerManager *layerManager)
         connect(m_layerManager, &LayerManager::layerMoved, this, &LayerPanel::updateLayerList);
         connect(m_layerManager, &LayerManager::layerChanged, this, &LayerPanel::updateLayerList);
         connect(m_layerManager, &LayerManager::activeLayerChanged, this, &LayerPanel::updateLayerList);
+        connect(m_layerManager, &LayerManager::layerContentChanged, this, &LayerPanel::updateLayerList);
+        
+        // 添加一个测试连接来确认信号是否被接收
+        connect(m_layerManager, &LayerManager::layerAdded, this, &LayerPanel::onLayerAdded);
+        
+        qDebug() << "LayerPanel: Connected to LayerManager, waiting for signals";
+        // 不再立即更新，等待信号推送
     }
-    
-    updateLayerList();
 }
 
 void LayerPanel::setupUI()
@@ -141,10 +148,12 @@ void LayerPanel::setupUI()
     m_layerTree->setDragDropMode(QAbstractItemView::InternalMove);
     m_layerTree->setDefaultDropAction(Qt::MoveAction);
     m_layerTree->setHeaderHidden(true);
+    m_layerTree->setRootIsDecorated(true);  // 显示树形结构装饰
+    m_layerTree->setAlternatingRowColors(true);  // 交替行颜色，更像列表
     
     // 设置列
     m_layerTree->setColumnCount(2);
-    m_layerTree->setColumnWidth(0, 150);  // 名称列
+    m_layerTree->setColumnWidth(0, 200);  // 名称列 - 增加宽度以容纳ID
     m_layerTree->setColumnWidth(1, 30);   // 可见性列
     
     connect(m_layerTree, &QTreeWidget::itemChanged, this, &LayerPanel::onLayerItemChanged);
@@ -164,6 +173,7 @@ void LayerPanel::setupUI()
 
 void LayerPanel::updateLayerList()
 {
+    qDebug() << "LayerPanel::updateLayerList called, m_layerManager:" << m_layerManager;
     populateLayerTree();
 }
 
@@ -238,6 +248,9 @@ void LayerPanel::populateLayerTree()
         } catch (...) {
             qDebug() << "Error adding objects to layer item for layer:" << layerName;
         }
+        
+        // 默认展开图层以显示列表式效果
+        layerItem->setExpanded(true);
         
         // 恢复展开状态
         if (expandedLayers.contains(layerName)) {
@@ -335,28 +348,58 @@ void LayerPanel::addObjectsToLayerItem(QTreeWidgetItem *layerItem, DrawingLayer 
     QList<DrawingShape*> shapes = layer->shapes();
     qDebug() << "Processing layer with" << shapes.count() << "shapes";
     
+    // 调试：打印所有形状的详细信息
+    for (int debugIdx = 0; debugIdx < shapes.count(); ++debugIdx) {
+        DrawingShape *debugShape = shapes.at(debugIdx);
+        if (debugShape) {
+            qDebug() << "DEBUG shape" << debugIdx << "- type:" << debugShape->shapeType() 
+                     << "- address:" << debugShape
+                     << "- isGroup:" << (debugShape->shapeType() == DrawingShape::Group)
+                     << "- dynamic_cast result:" << (dynamic_cast<DrawingGroup*>(debugShape) != nullptr);
+        }
+    }
+    
     for (int i = 0; i < shapes.count(); ++i) {
         DrawingShape *shape = shapes.at(i);
         
         if (shape) {
             try {
-                QTreeWidgetItem *shapeItem = new QTreeWidgetItem(layerItem);
-                QString shapeName = getShapeName(shape);
-                shapeItem->setText(0, shapeName);
-                shapeItem->setFlags(shapeItem->flags() | Qt::ItemIsUserCheckable);
-                shapeItem->setCheckState(1, shape->isVisible() ? Qt::Checked : Qt::Unchecked);
+                qDebug() << "Processing shape at index" << i << "type:" << shape->shapeType() << "address:" << shape;
+                qDebug() << "Is DrawingShape:" << (dynamic_cast<DrawingShape*>(shape) != nullptr);
                 
-                // 设置用户数据，存储形状指针 - 使用quintptr避免指针转换问题
-            shapeItem->setData(0, Qt::UserRole, reinterpret_cast<quintptr>(shape));
-            shapeItem->setData(0, Qt::UserRole + 1, "shape");  // 标识为形状类型
-                
-                qDebug() << "Added shape item:" << shapeName;
-                
-                // 如果是组对象，递归添加子对象
-            DrawingGroup *group = dynamic_cast<DrawingGroup*>(shape);
-            if (group) {
-                addGroupChildrenToShapeItem(shapeItem, group);
-            }
+                // 如果是组对象，创建组节点并递归添加子对象
+                if (shape->shapeType() == DrawingShape::Group) {
+                    qDebug() << "Shape type is Group, attempting dynamic_cast";
+                    DrawingGroup *group = dynamic_cast<DrawingGroup*>(shape);
+                    if (group) {
+                        qDebug() << "Found group, adding as group item";
+                        addGroupAsShapeItem(layerItem, group);
+                    } else {
+                        qDebug() << "dynamic_cast failed for Group type";
+                        // 降级处理，作为普通形状
+                        QTreeWidgetItem *shapeItem = new QTreeWidgetItem(layerItem);
+                        QString shapeName = getShapeName(shape);
+                        shapeItem->setText(0, shapeName);
+                        shapeItem->setFlags(shapeItem->flags() | Qt::ItemIsUserCheckable);
+                        shapeItem->setCheckState(1, shape->isVisible() ? Qt::Checked : Qt::Unchecked);
+                        shapeItem->setData(0, Qt::UserRole, reinterpret_cast<quintptr>(shape));
+                        shapeItem->setData(0, Qt::UserRole + 1, "shape");
+                        qDebug() << "Added shape item (failed cast):" << shapeName;
+                    }
+                } else {
+                    // 普通形状对象，直接添加到图层下
+                    QTreeWidgetItem *shapeItem = new QTreeWidgetItem(layerItem);
+                    QString shapeName = getShapeName(shape);
+                    shapeItem->setText(0, shapeName);
+                    shapeItem->setFlags(shapeItem->flags() | Qt::ItemIsUserCheckable);
+                    shapeItem->setCheckState(1, shape->isVisible() ? Qt::Checked : Qt::Unchecked);
+                    
+                    // 设置用户数据，存储形状指针 - 使用quintptr避免指针转换问题
+                    shapeItem->setData(0, Qt::UserRole, reinterpret_cast<quintptr>(shape));
+                    shapeItem->setData(0, Qt::UserRole + 1, "shape");  // 标识为形状类型
+                    
+                    qDebug() << "Added shape item:" << shapeName;
+                }
             } catch (...) {
                 qDebug() << "Error processing shape at index" << i;
             }
@@ -373,26 +416,44 @@ QString LayerPanel::getShapeName(DrawingShape *shape) const
     }
     
     try {
+        QString baseName;
         // 根据形状类型返回中文名称
         switch (shape->shapeType()) {
             case DrawingShape::Rectangle:
-                return tr("矩形");
+                baseName = tr("矩形");
+                break;
             case DrawingShape::Ellipse:
-                return tr("椭圆");
+                baseName = tr("椭圆");
+                break;
             case DrawingShape::Path:
-                return tr("路径");
+                baseName = tr("路径");
+                break;
             case DrawingShape::Line:
-                return tr("直线");
+                baseName = tr("直线");
+                break;
             case DrawingShape::Polyline:
-                return tr("折线");
+                baseName = tr("折线");
+                break;
             case DrawingShape::Polygon:
-                return tr("多边形");
+                baseName = tr("多边形");
+                break;
             case DrawingShape::Text:
-                return tr("文本");
+                baseName = tr("文本");
+                break;
             case DrawingShape::Group:
-                return tr("组");
+                baseName = tr("组");
+                break;
             default:
-                return tr("对象");
+                baseName = tr("对象");
+                break;
+        }
+        
+        // 添加ID信息 - 使用更简洁的格式
+        QString id = shape->id();
+        if (!id.isEmpty()) {
+            return QString("%1 #%2").arg(baseName).arg(id);
+        } else {
+            return baseName;
         }
     } catch (...) {
         qDebug() << "Error getting shape name";
@@ -400,9 +461,39 @@ QString LayerPanel::getShapeName(DrawingShape *shape) const
     }
 }
 
-void LayerPanel::addGroupChildrenToShapeItem(QTreeWidgetItem *shapeItem, DrawingGroup *group)
+void LayerPanel::addGroupAsShapeItem(QTreeWidgetItem *parentItem, DrawingGroup *group)
 {
-    if (!shapeItem || !group) {
+    if (!parentItem || !group) {
+        return;
+    }
+    
+    try {
+        // 为组创建树节点
+        QTreeWidgetItem *groupItem = new QTreeWidgetItem(parentItem);
+        QString groupName = getShapeName(group);
+        groupItem->setText(0, groupName);
+        groupItem->setFlags(groupItem->flags() | Qt::ItemIsUserCheckable);
+        groupItem->setCheckState(1, group->isVisible() ? Qt::Checked : Qt::Unchecked);
+        
+        // 设置用户数据，存储组指针
+        groupItem->setData(0, Qt::UserRole, reinterpret_cast<quintptr>(group));
+        groupItem->setData(0, Qt::UserRole + 1, "shape");  // 标识为形状类型
+        
+        qDebug() << "Added group item:" << groupName << "with" << group->items().count() << "children";
+        
+        // 递归添加组的子对象
+        addGroupChildrenToShapeItem(groupItem, group);
+        
+        // 默认展开组节点
+        groupItem->setExpanded(true);
+    } catch (...) {
+        qDebug() << "Error adding group item";
+    }
+}
+
+void LayerPanel::addGroupChildrenToShapeItem(QTreeWidgetItem *groupItem, DrawingGroup *group)
+{
+    if (!groupItem || !group) {
         return;
     }
     
@@ -414,22 +505,23 @@ void LayerPanel::addGroupChildrenToShapeItem(QTreeWidgetItem *shapeItem, Drawing
         
         if (shape) {
             try {
-                QTreeWidgetItem *childItem = new QTreeWidgetItem(shapeItem);
-                QString shapeName = getShapeName(shape);
-                childItem->setText(0, shapeName);
-                childItem->setFlags(childItem->flags() | Qt::ItemIsUserCheckable);
-                childItem->setCheckState(1, shape->isVisible() ? Qt::Checked : Qt::Unchecked);
-                
-                // 设置用户数据，存储形状指针 - 使用quintptr避免指针转换问题
-            childItem->setData(0, Qt::UserRole, reinterpret_cast<quintptr>(shape));
-            childItem->setData(0, Qt::UserRole + 1, "shape");  // 标识为形状类型
-                
-                qDebug() << "Added group child item:" << shapeName;
-                
-                // 递归处理嵌套组
+                // 如果子对象也是组，递归创建组节点
                 DrawingGroup *childGroup = dynamic_cast<DrawingGroup*>(shape);
                 if (childGroup) {
-                    addGroupChildrenToShapeItem(childItem, childGroup);
+                    addGroupAsShapeItem(groupItem, childGroup);
+                } else {
+                    // 普通形状对象，直接添加到组下
+                    QTreeWidgetItem *childItem = new QTreeWidgetItem(groupItem);
+                    QString shapeName = getShapeName(shape);
+                    childItem->setText(0, shapeName);
+                    childItem->setFlags(childItem->flags() | Qt::ItemIsUserCheckable);
+                    childItem->setCheckState(1, shape->isVisible() ? Qt::Checked : Qt::Unchecked);
+                    
+                    // 设置用户数据，存储形状指针
+                    childItem->setData(0, Qt::UserRole, reinterpret_cast<quintptr>(shape));
+                    childItem->setData(0, Qt::UserRole + 1, "shape");  // 标识为形状类型
+                    
+                    qDebug() << "Added group child item:" << shapeName;
                 }
             } catch (...) {
                 qDebug() << "Error processing group child at index" << i;
@@ -830,6 +922,11 @@ void LayerPanel::renameLayer(int index)
             }
         }
     }
+}
+
+void LayerPanel::onLayerAdded()
+{
+    qDebug() << "LayerPanel::onLayerAdded() - Received layerAdded signal!";
 }
 
 void LayerPanel::selectLayer(int index)

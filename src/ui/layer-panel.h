@@ -62,6 +62,7 @@ private slots:
     void onLayerItemChanged(QTreeWidgetItem *item, int column);
     void onLayerItemClicked(QTreeWidgetItem *item, int column);
     void onLayerItemDoubleClicked(QTreeWidgetItem *item, int column);
+    void onLayerAdded();
 
 private:
     void setupUI();
@@ -69,7 +70,8 @@ private:
     QTreeWidgetItem* createLayerItem(DrawingLayer *layer, int index);
     void populateLayerTree();
     void addObjectsToLayerItem(QTreeWidgetItem *layerItem, DrawingLayer *layer);
-    void addGroupChildrenToShapeItem(QTreeWidgetItem *shapeItem, DrawingGroup *group);
+    void addGroupAsShapeItem(QTreeWidgetItem *parentItem, DrawingGroup *group);
+    void addGroupChildrenToShapeItem(QTreeWidgetItem *groupItem, DrawingGroup *group);
     QString getShapeName(DrawingShape *shape) const;
     QString getItemPath(QTreeWidgetItem *item) const;
     QTreeWidgetItem* findItemByPath(const QString &path) const;

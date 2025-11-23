@@ -5,6 +5,8 @@
 #include <QGraphicsScene>
 #include <QTimer>
 #include <QPointer>
+#include <QUuid>
+#include <QAtomicInt>
 
 #include "../core/drawing-shape.h"
 #include "../core/drawing-document.h"
@@ -53,6 +55,7 @@ void BezierControlPointCommand::redo()
 // DrawingShape
 DrawingShape::DrawingShape(ShapeType type, QGraphicsItem *parent)
     : QGraphicsItem(parent)
+    , m_id(generateUniqueId())
     , m_type(type)
     , m_fillBrush(Qt::white)
     , m_strokePen(QPen(Qt::black, 1.0))
@@ -81,6 +84,13 @@ DrawingShape::~DrawingShape()
             drawingScene->clearSnapIndicators();
         }
     }
+}
+
+QString DrawingShape::generateUniqueId()
+{
+    // 使用简短的数字ID，便于在树形结构中显示
+    static QAtomicInt counter(1);
+    return QString("%1").arg(counter.fetchAndAddOrdered(1), 4, 10, QChar('0'));
 }
 
 void DrawingShape::applyTransform(const QTransform &transform, const QPointF &anchor)

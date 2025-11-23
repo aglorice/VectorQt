@@ -54,6 +54,9 @@ public:
 
 signals:
     void currentPanelChanged(int index);
+    
+private slots:
+    void onCurrentPanelChanged(int index);
 
 private:
     // 面板实例

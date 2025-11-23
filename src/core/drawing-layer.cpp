@@ -78,6 +78,9 @@ void DrawingLayer::addShape(DrawingShape *shape)
         // 应用图层属性到图形
         shape->setVisible(m_visible);
         shape->setOpacity(m_opacity);
+        
+        // 发出对象添加信号
+        emit shapeAdded(shape);
     }
 }
 
@@ -88,6 +91,9 @@ void DrawingLayer::removeShape(DrawingShape *shape)
         if (m_scene) {
             m_scene->removeItem(shape);
         }
+        
+        // 发出对象移除信号
+        emit shapeRemoved(shape);
     }
 }
 

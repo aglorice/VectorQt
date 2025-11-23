@@ -64,6 +64,11 @@ public:
     DrawingShape(ShapeType type, QGraphicsItem *parent = nullptr);
     ~DrawingShape();
     
+    // 对象ID管理
+    QString id() const { return m_id; }
+    void setId(const QString &id) { m_id = id; }
+    static QString generateUniqueId();
+    
     // 几何变换接口 - 直接使用QTransform
     virtual void applyTransform(const QTransform &transform, const QPointF &anchor = QPointF());
     QTransform transform() const { return m_transform; }
@@ -162,6 +167,7 @@ protected:
     // 子类需要实现的绘制方法（在本地坐标系中）
     virtual void paintShape(QPainter *painter) = 0;
     
+    QString m_id;           // 对象唯一标识符
     ShapeType m_type;
     QTransform m_transform;  // 直接使用Qt的变换系统
     QBrush m_fillBrush;
