@@ -1,9 +1,9 @@
+#include <QDebug>
 #include "../core/layer-manager.h"
 #include "../ui/drawingscene.h"
 #include "../core/drawing-layer.h"
 #include "../core/drawing-shape.h"
 #include "../ui/layer-panel.h"
-#include <QDebug>
 
 // 静态成员变量初始化
 LayerManager *LayerManager::s_instance = nullptr;

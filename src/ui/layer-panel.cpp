@@ -1,7 +1,3 @@
-#include "../ui/layer-panel.h"
-#include "../ui/drawingscene.h"
-#include "../core/drawing-layer.h"
-#include "../core/layer-manager.h"
 #include <QListWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -18,6 +14,10 @@
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QIcon>
+#include "../ui/layer-panel.h"
+#include "../ui/drawingscene.h"
+#include "../core/drawing-layer.h"
+#include "../core/layer-manager.h"
 
 LayerPanel::LayerPanel(QWidget *parent)
     : QWidget(parent)

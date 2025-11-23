@@ -1,9 +1,3 @@
-#include "../core/svghandler.h"
-#include "../ui/drawingscene.h"
-#include "../core/drawing-shape.h"
-#include "../core/drawing-layer.h"
-#include "../core/drawing-group.h"
-#include "../core/layer-manager.h"
 #include <QFile>
 #include <QDomDocument>
 #include <QDomElement>
@@ -16,6 +10,12 @@
 #include <QPointF>
 #include <QTransform>
 #include <QDebug>
+#include "../core/svghandler.h"
+#include "../ui/drawingscene.h"
+#include "../core/drawing-shape.h"
+#include "../core/drawing-layer.h"
+#include "../core/drawing-group.h"
+#include "../core/layer-manager.h"
 
 // 渐变存储
 static QHash<QString, QGradient> s_gradients;

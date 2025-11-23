@@ -876,6 +876,56 @@ void DrawingPath::setMarker(const QString &markerId, const QPixmap &markerPixmap
     update(); // 触发重绘以显示Marker
 }
 
+// 视觉反馈和高亮方法实现
+void DrawingPath::highlightNode(int index)
+{
+    if (index >= 0 && index < m_controlPoints.size()) {
+        m_highlightedNode = index;
+        m_highlightedPath = false;
+        update();
+    }
+}
+
+void DrawingPath::highlightPath(const QPointF& point)
+{
+    m_highlightedPath = true;
+    m_highlightedNode = -1;
+    update();
+}
+
+void DrawingPath::clearHighlights()
+{
+    m_highlightedNode = -1;
+    m_highlightedPath = false;
+    update();
+}
+
+int DrawingPath::findNodeAt(const QPointF& pos, qreal threshold) const
+{
+    QPointF localPos = mapFromScene(pos);
+    
+    for (int i = 0; i < m_controlPoints.size(); ++i) {
+        QPointF distance = localPos - m_controlPoints[i];
+        qreal squaredDistance = distance.x() * distance.x() + distance.y() * distance.y();
+        if (squaredDistance <= threshold * threshold) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool DrawingPath::isPointOnPath(const QPointF& pos, qreal threshold) const
+{
+    QPointF localPos = mapFromScene(pos);
+    
+    // 创建一个稍大的路径来检测点击
+    QPainterPathStroker stroker;
+    stroker.setWidth(threshold * 2);
+    QPainterPath widenedPath = stroker.createStroke(m_path);
+    
+    return widenedPath.contains(localPos);
+}
+
 QRectF DrawingPath::localBounds() const
 {
     // 获取路径本身的边界框
@@ -1170,8 +1220,19 @@ bool DrawingPath::showControlPolygon() const
 
 void DrawingPath::paintShape(QPainter *painter)
 {
-    // 绘制主路径
-    painter->drawPath(m_path);
+    // 如果路径被高亮，使用高亮样式
+    if (m_highlightedPath) {
+        QPen originalPen = painter->pen();
+        QPen highlightPen = originalPen;
+        highlightPen.setWidth(highlightPen.width() + 2);
+        highlightPen.setColor(highlightPen.color().lighter(150));
+        painter->setPen(highlightPen);
+        painter->drawPath(m_path);
+        painter->setPen(originalPen);
+    } else {
+        // 绘制主路径
+        painter->drawPath(m_path);
+    }
     
     // 绘制Marker（如果有）
     if (hasMarker()) {
@@ -1243,7 +1304,32 @@ void DrawingPath::paintShape(QPainter *painter)
         
         // 绘制所有控制点为圆形 - 使用固定大小，不受缩放影响
         const qreal pointRadius = 4.0; // 控制点半径
-        for (const QPointF &point : m_controlPoints) {
+        for (int i = 0; i < m_controlPoints.size(); ++i) {
+            const QPointF &point = m_controlPoints[i];
+            
+            // 如果是高亮的节点，使用高亮样式
+            if (i == m_highlightedNode) {
+                QPen highlightPen(Qt::SolidLine);
+                highlightPen.setColor(QColor(255, 100, 100, 255)); // 红色高亮
+                highlightPen.setWidth(2);
+                highlightPen.setCosmetic(true);
+                
+                QBrush highlightBrush(QColor(255, 200, 200, 200)); // 浅红色填充
+                
+                painter->setPen(highlightPen);
+                painter->setBrush(highlightBrush);
+            } else {
+                QPen pointPen(Qt::SolidLine);
+                pointPen.setColor(QColor(100, 100, 255, 200)); // 蓝色普通点
+                pointPen.setWidth(1);
+                pointPen.setCosmetic(true);
+                
+                QBrush pointBrush(QColor(200, 200, 255, 180)); // 浅蓝色填充
+                
+                painter->setPen(pointPen);
+                painter->setBrush(pointBrush);
+            }
+            
             // 保存当前变换状态
             painter->save();
             
@@ -1470,6 +1556,50 @@ void DrawingText::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
     }
     
     QGraphicsItem::mouseDoubleClickEvent(event);
+}
+
+DrawingPath* DrawingText::convertToPath() const
+{
+    // 创建新的路径对象
+    DrawingPath *path = new DrawingPath();
+    
+    // 直接创建文本路径，不需要QPainter
+    QPainterPath textPath;
+    textPath.addText(m_position, m_font, m_text);
+    
+    // 设置路径
+    path->setPath(textPath);
+    
+    // 复制变换和位置
+    path->setTransform(transform());
+    path->setPos(pos());
+    
+    // 设置样式 - 文本应该有填充色
+    if (m_fillBrush != Qt::NoBrush) {
+        // 如果有填充色，使用填充色
+        path->setFillBrush(m_fillBrush);
+        path->setStrokePen(Qt::NoPen); // 移除描边
+    } else if (m_strokePen.style() != Qt::NoPen) {
+        // 如果没有填充色但有描边色，使用描边色作为填充
+        path->setFillBrush(QBrush(m_strokePen.color()));
+        path->setStrokePen(Qt::NoPen);
+    } else {
+        // 默认使用黑色填充
+        path->setFillBrush(QBrush(Qt::black));
+        path->setStrokePen(Qt::NoPen);
+    }
+    
+    // 确保控制点正确初始化
+    QVector<QPointF> controlPoints;
+    for (int i = 0; i < textPath.elementCount(); ++i) {
+        const QPainterPath::Element &element = textPath.elementAt(i);
+        if (element.type != QPainterPath::MoveToElement) {
+            controlPoints.append(QPointF(element.x, element.y));
+        }
+    }
+    path->setControlPoints(controlPoints);
+    
+    return path;
 }
 
 // DrawingLine implementation

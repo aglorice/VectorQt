@@ -93,6 +93,15 @@ public:
     // 获取可用于布尔运算的路径（考虑变换）
     virtual QPainterPath transformedShape() const;
     
+    // 视觉反馈和高亮支持
+    virtual void highlightNode(int index) { Q_UNUSED(index); }
+    virtual void highlightPath(const QPointF& point) { Q_UNUSED(point); }
+    virtual void clearHighlights() { m_highlightedNode = -1; m_highlightedPath = false; update(); }
+    
+    // 获取节点在指定位置的索引
+    virtual int findNodeAt(const QPointF& pos, qreal threshold = 5.0) const { Q_UNUSED(pos); Q_UNUSED(threshold); return -1; }
+    virtual bool isPointOnPath(const QPointF& pos, qreal threshold = 5.0) const { Q_UNUSED(pos); Q_UNUSED(threshold); return false; }
+    
     // 样式属性
     void setFillBrush(const QBrush &brush) { m_fillBrush = brush; update(); notifyObjectStateChanged(); }
     QBrush fillBrush() const { return m_fillBrush; }
@@ -175,6 +184,10 @@ protected:
     bool m_isMoving = false;
     bool m_transformStarted = false;
     QPointF m_moveStartPos;
+    
+    // 视觉反馈状态
+    int m_highlightedNode = -1;
+    bool m_highlightedPath = false;
 };
 
 // DrawingRectangle
@@ -326,6 +339,13 @@ public:
     void updateFromNodePoints() override;
     int getNodePointCount() const override { return m_controlPoints.size(); }
     
+    // 重写视觉反馈方法
+    void highlightNode(int index) override;
+    void highlightPath(const QPointF& point) override;
+    void clearHighlights() override;
+    int findNodeAt(const QPointF& pos, qreal threshold = 5.0) const override;
+    bool isPointOnPath(const QPointF& pos, qreal threshold = 5.0) const override;
+    
     // Marker相关
     void setMarker(const QString &markerId, const QPixmap &markerPixmap, const QTransform &markerTransform);
     bool hasMarker() const { return !m_markerId.isEmpty(); }
@@ -381,6 +401,9 @@ public:
     
     // 重写setPos以确保位置变化时文本也跟着移动
     void setPos(const QPointF &pos);
+    
+    // 文本转路径功能
+    DrawingPath* convertToPath() const;
     
     // 编辑点相关 - 文本的控制点（位置和大小）
     QVector<QPointF> getNodePoints() const override;

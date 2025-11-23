@@ -1,7 +1,7 @@
+#include <QDebug>
 #include "../core/drawing-layer.h"
 #include "../core/drawing-shape.h"
 #include "../ui/drawingscene.h"
-#include <QDebug>
 
 DrawingLayer::DrawingLayer(const QString &name, QObject *parent)
     : QObject(parent)

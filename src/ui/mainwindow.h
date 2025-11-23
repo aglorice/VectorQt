@@ -72,7 +72,7 @@ private slots:
     void eraserTool();
     void lineTool();
     void pathEditTool();
-    // void textTool()  // Not implemented yet
+    void textTool();
     
     // 工具面板槽函数
     void onBrushSizeChanged(int size);
@@ -93,6 +93,7 @@ private slots:
     void copySelected();
     void paste();
     void duplicate();  // Ctrl+D 快速复制粘贴
+    void convertTextToPath();  // 文本转路径
     void selectAll();
     void deselectAll();
     void zoomIn();
@@ -204,6 +205,7 @@ private:
     QAction *m_eraserToolAction;
     QAction *m_lineToolAction;
     QAction *m_pathEditToolAction;
+    QAction *m_textToolAction;
     QAction *m_pathUnionAction;
     QAction *m_pathSubtractAction;
     QAction *m_pathIntersectAction;
@@ -212,6 +214,7 @@ private:
     QAction *m_copyAction;
     QAction *m_pasteAction;
     QAction *m_duplicateAction;
+    QAction *m_convertTextToPathAction;
     QAction *m_selectAllAction;
     QAction *m_deselectAllAction;
     QAction *m_zoomInAction;

@@ -1,8 +1,3 @@
-#include "../core/drawing-group.h"
-#include "../core/drawing-shape.h"
-
-#include "../ui/drawingscene.h"
-// #include "selection-layer.h" // 已移除 - 老的选择层系统
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QDebug>
@@ -10,6 +5,10 @@
 #include <QGraphicsScene>
 #include <QWidget>
 #include <limits>
+#include "../core/drawing-group.h"
+#include "../core/drawing-shape.h"
+#include "../ui/drawingscene.h"
+// #include "selection-layer.h" // 已移除 - 老的选择层系统
 
 DrawingGroup::DrawingGroup(QGraphicsItem *parent)
     : DrawingShape(DrawingShape::Group, parent)

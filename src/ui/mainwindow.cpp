@@ -13,11 +13,11 @@
 #include <QHBoxLayout>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <QApplication>
 #include <QInputDialog>
 #include <QColorDialog>
 #include <QScrollBar>
 #include <QIcon>
+#include <algorithm>
 #include "../ui/mainwindow.h"
 #include "../ui/drawingscene.h"
 #include "../ui/drawingview.h"
@@ -37,11 +37,8 @@
 #include "../tools/drawing-tool-node-edit.h"
 #include "../tools/drawing-tool-polyline.h"
 #include "../tools/drawing-tool-polygon.h"
-#include "../tools/drawing-tool-brush.h"
 #include "../tools/drawing-tool-fill.h"
 #include "../tools/drawing-tool-gradient-fill.h"
-#include "../tools/drawing-tool-pen.h"
-#include "../tools/drawing-tool-eraser.h"
 #include "../tools/drawing-tool-line.h"
 #include "../tools/drawing-tool-path-edit.h"
 #include "../tools/drawing-tool-outline-preview.h"
@@ -49,7 +46,6 @@
 #include "../ui/ruler.h"
 #include "../ui/scrollable-toolbar.h"
 #include "../core/svghandler.h"
-#include <algorithm>
 #include "../core/drawing-shape.h"
 #include "../ui/colorpalette.h"
 #include "../core/drawing-group.h"
@@ -481,19 +477,10 @@ void MainWindow::setupMenus()
     toolsMenu->addAction(m_rectangleToolAction);
     toolsMenu->addAction(m_ellipseToolAction);
     toolsMenu->addAction(m_bezierToolAction);
-    toolsMenu->addAction(m_polylineToolAction);
-    toolsMenu->addAction(m_polygonToolAction);
-    toolsMenu->addAction(m_brushToolAction);
-    toolsMenu->addAction(m_fillToolAction);
-    toolsMenu->addAction(m_gradientFillToolAction);
-    toolsMenu->addAction(m_penToolAction);
-    toolsMenu->addAction(m_eraserToolAction);
-    toolsMenu->addAction(m_lineToolAction);
-    // toolsMenu->addAction(m_textToolAction);  // Not implemented yet
+    toolsMenu->addAction(m_textToolAction);
 
-    // Path menu
+    // Path menu - 路径编辑功能已集成到选择工具中
     QMenu *pathMenu = menuBar()->addMenu("&路径");
-    pathMenu->addAction(m_pathEditToolAction);
     
     // 添加路径布尔运算操作
     pathMenu->addSeparator();
@@ -581,7 +568,7 @@ void MainWindow::setupToolbars()
     addToolBar(Qt::LeftToolBarArea, m_scrollableToolBar);
     m_scrollableToolBar->setOrientation(Qt::Vertical);
     m_scrollableToolBar->setToolButtonStyle(Qt::ToolButtonIconOnly); // 只显示图标
-    m_scrollableToolBar->setIconSize(QSize(32, 32)); // 工具图标稍大一些
+    m_scrollableToolBar->setIconSize(QSize(24, 24)); // 统一图标大小
     m_scrollableToolBar->addAction(m_outlinePreviewToolAction);
     m_scrollableToolBar->addSeparator();
     
@@ -594,8 +581,6 @@ void MainWindow::setupToolbars()
     // 路径工具
     m_scrollableToolBar->addAction(m_bezierToolAction);
     m_scrollableToolBar->addAction(m_nodeEditToolAction);
-    m_scrollableToolBar->addAction(m_pathEditToolAction);
-    m_scrollableToolBar->addAction(m_polylineToolAction);
     m_scrollableToolBar->addAction(m_polygonToolAction);
     m_scrollableToolBar->addSeparator();
     
@@ -608,7 +593,7 @@ void MainWindow::setupToolbars()
     m_scrollableToolBar->addAction(m_fillToolAction);
     m_scrollableToolBar->addAction(m_gradientFillToolAction);
     m_scrollableToolBar->addAction(m_eraserToolAction);
-    // m_scrollableToolBar->addAction(m_textToolAction);  // Not implemented yet
+    m_scrollableToolBar->addAction(m_textToolAction);
 
     // View toolbar - 包含视图、组合和对齐操作
     QToolBar *viewToolBar = addToolBar("视图");
@@ -798,6 +783,10 @@ void MainWindow::createActions()
     m_duplicateAction->setShortcut(QKeySequence("Ctrl+D"));
     m_duplicateAction->setStatusTip("快速复制并粘贴选中项目");
 
+    m_convertTextToPathAction = new QAction("文本转路径(&T)", this);
+    m_convertTextToPathAction->setShortcut(QKeySequence("Ctrl+Shift+T"));
+    m_convertTextToPathAction->setStatusTip("将选中的文本转换为可编辑的路径");
+
     m_selectAllAction = new QAction("全选(&A)", this);
     m_selectAllAction->setShortcut(QKeySequence::SelectAll);
     m_selectAllAction->setStatusTip("选择所有项目");
@@ -888,28 +877,28 @@ void MainWindow::createActions()
     m_outlinePreviewToolAction->setCheckable(true);
     m_outlinePreviewToolAction->setShortcut(QKeySequence("V"));
     m_outlinePreviewToolAction->setStatusTip("选择和变换项目");
-    m_outlinePreviewToolAction->setIcon(QIcon(":/icons/icons/select-tool-new.svg"));
+    m_outlinePreviewToolAction->setIcon(QIcon(":/icons/icons/tool-pointer.svg"));
     m_toolGroup->addAction(m_outlinePreviewToolAction);
 
     m_rectangleToolAction = new QAction("&矩形工具", this);
     m_rectangleToolAction->setCheckable(true);
     m_rectangleToolAction->setShortcut(QKeySequence("R"));
     m_rectangleToolAction->setStatusTip("绘制矩形");
-    m_rectangleToolAction->setIcon(QIcon(":/icons/icons/rectangle-tool-new.svg"));
+    m_rectangleToolAction->setIcon(QIcon(":/icons/icons/draw-rectangle.svg"));
     m_toolGroup->addAction(m_rectangleToolAction);
 
     m_ellipseToolAction = new QAction("&椭圆工具", this);
     m_ellipseToolAction->setCheckable(true);
     m_ellipseToolAction->setShortcut(QKeySequence("E"));
     m_ellipseToolAction->setStatusTip("绘制椭圆");
-    m_ellipseToolAction->setIcon(QIcon(":/icons/icons/ellipse-tool-new.svg"));
+    m_ellipseToolAction->setIcon(QIcon(":/icons/icons/draw-ellipse.svg"));
     m_toolGroup->addAction(m_ellipseToolAction);
 
     m_bezierToolAction = new QAction("&贝塞尔曲线工具", this);
     m_bezierToolAction->setCheckable(true);
     m_bezierToolAction->setShortcut(QKeySequence("B"));
     m_bezierToolAction->setStatusTip("绘制贝塞尔曲线");
-    m_bezierToolAction->setIcon(QIcon(":/icons/icons/bezier-tool-new.svg"));
+    m_bezierToolAction->setIcon(QIcon(":/icons/icons/draw-path.svg"));
     m_toolGroup->addAction(m_bezierToolAction);
     
     
@@ -918,7 +907,7 @@ void MainWindow::createActions()
     m_nodeEditToolAction->setCheckable(true);
     m_nodeEditToolAction->setShortcut(QKeySequence("N"));
     m_nodeEditToolAction->setStatusTip("编辑图形节点和控制点");
-    m_nodeEditToolAction->setIcon(QIcon(":/icons/icons/node-edit-tool.svg")); // 使用专用节点编辑图标
+    m_nodeEditToolAction->setIcon(QIcon(":/icons/icons/tool-node-editor.svg")); // 使用专用节点编辑图标
     m_toolGroup->addAction(m_nodeEditToolAction);
 
     m_polylineToolAction = new QAction("&折线工具", this);
@@ -932,42 +921,42 @@ void MainWindow::createActions()
     m_polygonToolAction->setCheckable(true);
     m_polygonToolAction->setShortcut(QKeySequence("P"));
     m_polygonToolAction->setStatusTip("绘制多边形");
-    m_polygonToolAction->setIcon(QIcon(":/icons/icons/polygon-tool-new.svg"));
+    m_polygonToolAction->setIcon(QIcon(":/icons/icons/draw-polygon.svg"));
     m_toolGroup->addAction(m_polygonToolAction);
 
     m_brushToolAction = new QAction("&画笔工具", this);
     m_brushToolAction->setCheckable(true);
     m_brushToolAction->setShortcut(QKeySequence("B"));
     m_brushToolAction->setStatusTip("自由绘制");
-    m_brushToolAction->setIcon(QIcon(":/icons/icons/brush-tool-new.svg"));
+    m_brushToolAction->setIcon(QIcon(":/icons/icons/draw-freehand.svg"));
     m_toolGroup->addAction(m_brushToolAction);
 
     m_fillToolAction = new QAction("&填充工具", this);
     m_fillToolAction->setCheckable(true);
     m_fillToolAction->setShortcut(QKeySequence("F"));
     m_fillToolAction->setStatusTip("填充区域");
-    m_fillToolAction->setIcon(QIcon(":/icons/icons/fill-tool-new.svg"));
+    m_fillToolAction->setIcon(QIcon(":/icons/icons/color-fill.svg"));
     m_toolGroup->addAction(m_fillToolAction);
 
     m_gradientFillToolAction = new QAction("&渐进填充工具", this);
     m_gradientFillToolAction->setCheckable(true);
     m_gradientFillToolAction->setShortcut(QKeySequence("G"));
     m_gradientFillToolAction->setStatusTip("渐进填充区域");
-    m_gradientFillToolAction->setIcon(QIcon(":/icons/icons/gradient-fill-tool.svg"));
+    m_gradientFillToolAction->setIcon(QIcon(":/icons/icons/color-gradient.svg"));
     m_toolGroup->addAction(m_gradientFillToolAction);
 
     m_penToolAction = new QAction("&钢笔工具", this);
     m_penToolAction->setCheckable(true);
     m_penToolAction->setShortcut(QKeySequence("P"));
     m_penToolAction->setStatusTip("绘制贝塞尔曲线路径");
-    m_penToolAction->setIcon(QIcon(":/icons/icons/pen-tool.svg"));
+    m_penToolAction->setIcon(QIcon(":/icons/icons/draw-calligraphic.svg"));
     m_toolGroup->addAction(m_penToolAction);
 
     m_eraserToolAction = new QAction("&橡皮擦工具", this);
     m_eraserToolAction->setCheckable(true);
     m_eraserToolAction->setShortcut(QKeySequence("E"));
     m_eraserToolAction->setStatusTip("擦除图形或图形的部分区域");
-    m_eraserToolAction->setIcon(QIcon(":/icons/icons/eraser-tool.svg"));
+    m_eraserToolAction->setIcon(QIcon(":/icons/icons/draw-eraser.svg"));
     m_toolGroup->addAction(m_eraserToolAction);
 
     m_lineToolAction = new QAction("&线条工具", this);
@@ -984,11 +973,12 @@ void MainWindow::createActions()
     m_pathEditToolAction->setIcon(QIcon(":/icons/icons/path-edit-tool-new.svg"));
     m_toolGroup->addAction(m_pathEditToolAction);
 
-    // m_textToolAction = new QAction("&文本工具", this);  // Not implemented yet
-    // m_textToolAction->setCheckable(true);
-    // m_textToolAction->setShortcut(QKeySequence("T"));
-    // m_textToolAction->setStatusTip("添加文本");
-    // m_toolGroup->addAction(m_textToolAction);
+    m_textToolAction = new QAction("&文本工具", this);
+    m_textToolAction->setCheckable(true);
+    m_textToolAction->setShortcut(QKeySequence("T"));
+    m_textToolAction->setStatusTip("添加文本");
+    m_textToolAction->setIcon(QIcon(":/icons/icons/draw-text.svg"));
+    m_toolGroup->addAction(m_textToolAction);
 
     // Path boolean operations
     m_pathUnionAction = new QAction("联合(&U)", this);
@@ -1029,6 +1019,7 @@ void MainWindow::connectActions()
     connect(m_copyAction, &QAction::triggered, this, &MainWindow::copySelected);
     connect(m_pasteAction, &QAction::triggered, this, &MainWindow::paste);
     connect(m_duplicateAction, &QAction::triggered, this, &MainWindow::duplicate);
+    connect(m_convertTextToPathAction, &QAction::triggered, this, &MainWindow::convertTextToPath);
     connect(m_selectAllAction, &QAction::triggered, this, &MainWindow::selectAll);
     connect(m_deselectAllAction, &QAction::triggered, this, &MainWindow::deselectAll);
 
@@ -1076,7 +1067,7 @@ void MainWindow::connectActions()
     connect(m_eraserToolAction, &QAction::triggered, this, &MainWindow::eraserTool);
     connect(m_lineToolAction, &QAction::triggered, this, &MainWindow::lineTool);
     connect(m_pathEditToolAction, &QAction::triggered, this, &MainWindow::pathEditTool);
-    // connect(m_textToolAction, &QAction::triggered, this, &MainWindow::textTool);  // Not implemented yet
+    connect(m_textToolAction, &QAction::triggered, this, &MainWindow::textTool);
     
     // Path boolean operation connections
     connect(m_pathUnionAction, &QAction::triggered, this, &MainWindow::pathUnion);
@@ -1448,10 +1439,12 @@ void MainWindow::pathEditTool()
     setCurrentTool(m_pathEditTool);
 }
 
-// void MainWindow::textTool()  // Not implemented yet
-// {
-//     setCurrentTool(m_textTool);
-// }
+void MainWindow::textTool()
+{
+    // 暂时使用选择工具作为文本工具的基础
+    selectTool();
+    m_statusLabel->setText("文本工具已激活 - 选择文本对象后右键选择'文本转路径'");
+}
 
 // updateZoomLabel implementation is below
 
@@ -1604,6 +1597,20 @@ void MainWindow::copySelected()
             jsonData += QString("\"type\":%1,").arg((int)shape->shapeType());
             jsonData += QString("\"x\":%1,").arg(shape->pos().x());
             jsonData += QString("\"y\":%1,").arg(shape->pos().y());
+            
+            // 写入变换矩阵
+            QTransform transform = shape->transform();
+            if (!transform.isIdentity()) {
+                jsonData += QString("\"transform\":{\"m11\":%1,\"m12\":%2,\"m21\":%3,\"m22\":%4,\"dx\":%5,\"dy\":%6},")
+                            .arg(transform.m11())
+                            .arg(transform.m12())
+                            .arg(transform.m21())
+                            .arg(transform.m22())
+                            .arg(transform.dx())
+                            .arg(transform.dy());
+            } else {
+                jsonData += "\"transform\":null,";
+            }
             
             // 写入样式数据
             QPen pen = shape->strokePen();
@@ -1843,6 +1850,25 @@ void MainWindow::paste()
         }
         
         if (shape) {
+            // 应用变换矩阵
+            QString transformStr = props["transform"];
+            if (!transformStr.isEmpty() && transformStr != "null") {
+                QString cleanTransform = transformStr.mid(1, transformStr.length() - 2); // 移除 {}
+                QStringList transformPairs = cleanTransform.split(',');
+                
+                if (transformPairs.size() >= 6) {
+                    double m11 = transformPairs[0].split(':')[1].toDouble();
+                    double m12 = transformPairs[1].split(':')[1].toDouble();
+                    double m21 = transformPairs[2].split(':')[1].toDouble();
+                    double m22 = transformPairs[3].split(':')[1].toDouble();
+                    double dx = transformPairs[4].split(':')[1].toDouble();
+                    double dy = transformPairs[5].split(':')[1].toDouble();
+                    
+                    QTransform transform(m11, m12, m21, m22, dx, dy);
+                    shape->applyTransform(transform);
+                }
+            }
+            
             // 应用样式
             QString strokeStr = props["stroke"];
             QString fillStr = props["fill"];
@@ -1893,6 +1919,43 @@ void MainWindow::duplicate()
     // 快速复制粘贴：先复制，然后立即粘贴
     copySelected();
     paste();
+}
+
+void MainWindow::convertTextToPath()
+{
+    if (!m_scene)
+        return;
+
+    QList<QGraphicsItem *> selected = m_scene->selectedItems();
+    if (selected.isEmpty())
+        return;
+
+    QList<DrawingShape*> convertedShapes;
+    
+    foreach (QGraphicsItem *item, selected) {
+        DrawingText *textShape = qgraphicsitem_cast<DrawingText*>(item);
+        if (textShape) {
+            // 将文本转换为路径
+            DrawingPath *pathShape = textShape->convertToPath();
+            if (pathShape) {
+                // 添加到场景
+                m_scene->addItem(pathShape);
+                pathShape->setSelected(true);
+                convertedShapes.append(pathShape);
+                
+                // 移除原始文本
+                m_scene->removeItem(textShape);
+                delete textShape;
+            }
+        }
+    }
+    
+    if (!convertedShapes.isEmpty()) {
+        m_scene->setModified(true);
+        m_statusLabel->setText(QString("已将 %1 个文本转换为路径").arg(convertedShapes.size()));
+    } else {
+        m_statusLabel->setText("没有选中的文本对象");
+    }
 }
 
 void MainWindow::selectAll()

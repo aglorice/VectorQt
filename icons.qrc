@@ -34,5 +34,20 @@
         <file>icons/polygon-tool-new.svg</file>
         <file>icons/path-edit-tool-new.svg</file>
         <file>icons/no-fill-pattern.svg</file>
+        <!-- Inkscape风格的新图标 -->
+        <file>icons/draw-calligraphic.svg</file>
+        <file>icons/draw-eraser.svg</file>
+        <file>icons/draw-freehand.svg</file>
+        <file>icons/draw-path.svg</file>
+        <file>icons/draw-rectangle.svg</file>
+        <file>icons/draw-text.svg</file>
+        <file>icons/color-fill.svg</file>
+        <!-- 额外的工具图标 -->
+        <file>icons/tool-node-editor.svg</file>
+        <file>icons/tool-pointer.svg</file>
+        <!-- 更多绘图图标 -->
+        <file>icons/draw-ellipse.svg</file>
+        <file>icons/draw-polygon.svg</file>
+        <file>icons/color-gradient.svg</file>
     </qresource>
 </RCC>

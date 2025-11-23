@@ -1,3 +1,6 @@
+#include <QTabWidget>
+#include <QVBoxLayout>
+#include <QIcon>
 #include "../ui/tabbed-property-panel.h"
 #include "../ui/propertypanel.h"
 #include "../ui/layer-panel.h"
@@ -6,9 +9,6 @@
 #include "../ui/page-settings-panel.h"
 #include "../ui/drawingscene.h"
 #include "../ui/drawingview.h"
-#include <QTabWidget>
-#include <QVBoxLayout>
-#include <QIcon>
 
 TabbedPropertyPanel::TabbedPropertyPanel(QWidget *parent)
     : QTabWidget(parent)

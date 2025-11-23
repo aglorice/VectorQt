@@ -1,11 +1,11 @@
-#include "../ui/propertypanel.h"
-#include "../ui/drawingscene.h"
-#include "../core/drawing-shape.h"
 #include <QGraphicsItem>
 #include <QColorDialog>
 #include <QFrame>
 #include <QScrollArea>
 #include <QtMath>
+#include "../ui/propertypanel.h"
+#include "../ui/drawingscene.h"
+#include "../core/drawing-shape.h"
 
 PropertyPanel::PropertyPanel(QWidget *parent)
     : QWidget(parent)
